@@ -36,6 +36,76 @@ Example domains (shipped only as light proof-of-concept samples):
 
 ## 3. Core model (proposed)
 
+The first implemented API is available from `igomgo_nodes.core`:
+`PortSpec`, `NodeSpec`, `BaseNode`, and `NodeRegistry`.
+
+Graph data is also implemented:
+
+- `NodeInstance(node_id, type_id, params, position)` stores serializable instance data,
+  separate from the consumer's processing class. `Position(x, y)` uses finite coordinates;
+  each node stores its own position rather than using a separate position map.
+- `Edge(edge_id, src_node, src_port, dst_node, dst_port)` identifies a directed connection.
+- `Graph(nodes, edges, policy)` carries `schema_version=1` and rejects duplicate node IDs,
+  duplicate edge IDs, identical connections, and endpoints referencing missing nodes.
+  `graph.validate_connections(registry)` checks node types and directional port names
+  against explicitly registered specs, exact data-type matches (`any` matches either side),
+  and minimum/maximum connection counts on every input and output port.
+  It raises `KeyError` for unknown node types and `ValueError` for invalid connections,
+  without instantiating or executing consumer nodes. Minimums include unconnected ports.
+  Graph construction still permits incomplete editing states; call validation before a run.
+  Call `graph.validate_feedback()` separately to reject cycles when feedback is disabled.
+  Both checks are required before execution; neither executes consumer processing.
+- `graph.strongly_connected_components()` returns all components as tuples of node IDs,
+  including isolated/acyclic singletons, in topological order between components.
+  Multi-node components and self-loops are cycles. Detection uses iterative traversal so
+  long graphs do not depend on Python's recursion limit.
+- `GraphPolicy` defaults to feedback disabled. Enabling it requires `LoopPolicy`;
+  providing loop settings while feedback is disabled is rejected.
+- `LoopPolicy` requires a positive integer iteration limit, a finite positive timeout,
+  and a positive integer capture interval (default 1). `Executor` enforces runtime and
+  capture limits after virtual-spiral expansion; policy declarations alone do not run nodes.
+- Graph models support Pydantic JSON round-trips. Unknown schema versions and unknown
+  model fields are rejected. Raw audio/images do not belong in graph parameters.
+  `params` dictionaries remain editable; frozen model fields and tuples prevent structural
+  reassignment but do not deeply freeze parameter values.
+
+- Specs reject unknown fields, empty identifiers, negative/non-integer limits, inverted
+  connection ranges, duplicate port names within a direction, and declared ports exceeding
+  node limits. `None` means unlimited; zero means none. Specs are immutable, with port tuples.
+- `max_inputs`/`max_outputs` count declared ports, not connected edges; `NodeSpec` enforces
+  these limits. Connection counts are checked separately per named port and node instance.
+- Consumers subclass `BaseNode`, declare a class-level `spec`, and implement
+  `process(inputs: Mapping[str, object]) -> dict[str, object]`.
+  Each instance has `node_id` and independently copied, JSON-compatible `params`.
+  An optional class-level `parameter_model: type[BaseModel]` validates/defaults parameters
+  both in the inspector and during node construction. The editor generates fields from its
+  JSON schema; nodes without a parameter model use a JSON-object form.
+- `NodeRegistry.register(MyNode)` accepts concrete classes with valid specs.
+  `resolve(type_id)` returns only an explicitly registered class; duplicate and unknown
+  identifiers raise errors. Registry state belongs to the consumer, not a global singleton.
+- Execution context is implemented as `self.context`; parameter UI schemas and rendering
+  hooks below remain proposals for later milestones. The core has no rendering dependency.
+
+### JSON interchange and versioning
+
+- `dumps_graph(graph)` returns formatted JSON text. `loads_graph(text_or_utf8_bytes, registry)`
+  returns a structurally validated graph and resolves all node type IDs through the registry,
+  without instantiating or executing consumers.
+- Imported documents must explicitly contain integer `schema_version: 1`; missing versions,
+  booleans, floats, and unknown versions are rejected, rather than silently assumed/migrated.
+  Programmatically constructed `Graph()` objects still default to version 1.
+- Import/export enforce a 25 MiB UTF-8 limit, 10,000 nodes, and 100,000 edges.
+  Imports reject duplicate JSON keys, non-finite numbers (including exponent overflow),
+  malformed JSON, unknown model fields, invalid structure, and unsupported encodings.
+  Exports revalidate mutable parameters and reject non-finite values.
+- Incomplete editing states can be saved: minimum connections, port compatibility, and cycle
+  permission are not run-readiness guarantees at import time. The executor checks these
+  before processing. Unknown node types require the consumer to register its trusted module;
+  JSON can never request a dynamic import.
+- Version 1 is the first format, so there are no historical migrations. A future breaking
+  change must bump the version and introduce an explicit, tested JSON-data migrator for each
+  supported older version before accepting it. Unknown newer versions must remain rejected.
+
 ```python
 class PortSpec:            # declared on node classes
     name: str
@@ -59,8 +129,10 @@ class BaseNode:            # consumers subclass this
     def process(self, inputs: dict[str, Any], ctx: RunContext) -> dict[str, Any]: ...
     def render(self, outputs, ctx) -> None: ...   # optional, for output/display nodes
 
-class Edge:   src_node, src_port, dst_node, dst_port
-class Graph:  nodes, edges, positions, policy: GraphPolicy, schema_version
+class Position: x, y
+class NodeInstance: node_id, type_id, params, position: Position
+class Edge:   edge_id, src_node, src_port, dst_node, dst_port
+class Graph:  nodes, edges, policy: GraphPolicy, schema_version
 
 class GraphPolicy:              # one feedback permission for the whole graph
     allow_feedback: bool = False
@@ -99,11 +171,82 @@ closes the cycle feeds pass *k*'s output into pass *k+1*'s input.
 - Optional helper `Graph.unroll(n)` returns the expanded acyclic graph so a consumer can
   hand it to its own engine instead of using the built-in executor.
 
+#### Implemented expansion contract
+
+`graph.unroll(n=None, feedback_edge_ids=frozenset({...}))` returns a new acyclic graph.
+It does not execute processing or enforce an elapsed-time budget.
+
+- The consumer explicitly selects feedback edge IDs. This identifies iteration boundaries,
+  not per-edge permission: the graph-wide feedback permission is still required.
+  Selections must be inside cyclic components and their removal must break every cycle.
+  There is no inference from node declaration order or visual position.
+- Each cyclic component gets `n` copies of every member (default: `max_iterations`).
+  `n` must be a positive integer and cannot exceed the original loop policy.
+  Ordinary internal edges stay within a pass; selected edges connect pass k to pass k+1.
+  Feedback is absent on the first pass and never wraps around from the final pass.
+- External inputs enter only the first pass. Outputs leave only the last pass.
+  Consecutive cyclic components therefore connect the first group's final pass to the
+  second group's first pass. Acyclic nodes run only once.
+- The first copy retains the original node ID; later copies use collision-safe IDs such
+  as `node@2`. Parameters are deep-copied, type IDs and positions are preserved, and the
+  original graph is unchanged. The returned graph has feedback disabled.
+- Expansion is rejected before materializing copies above the default hard caps of
+  10,000 nodes or 100,000 edges; it is never silently shortened.
+- Connection validation belongs on the original graph. Missing inputs at pass boundaries
+  need executor initialization handling; an expanded graph can intentionally lack the
+  original required feedback input or external inputs on later passes.
+- Retain the original graph's loop policy for execution timeout/capture enforcement;
+  handing just the expanded graph to an external engine does not enforce those budgets.
+- A consumer may interpret passes as successive 2D/video frames. Frame acquisition,
+  time-dependent processing, and AVI encoding remain consumer responsibilities; iteration
+  context for consumer processing will be addressed in the executor milestone.
+
 ### Execution
+- Audio sample-level feedback is additive: the feedback contribution is added to the
+  next input sample, not substituted for it. Delay/echo state, feedback gain, and sample
+  mixing belong inside the consumer's audio node, not in the domain-neutral graph executor.
+  Graph spiral iterations remain distinct from audio sample timing.
 - No cycles → topological sort, run each node once.
 - Cycles (feedback allowed) → find strongly connected components (SCCs), unroll each into
   the spiral above, then run the resulting acyclic graph in topological order.
-- Results cached per node by hash of (params + input hashes) to keep Streamlit reruns fast.
+- Planned: cache results per node by hash of (params + input hashes) to keep reruns fast.
+
+#### Implemented executor contract
+
+`Executor().run(graph, registry, feedback_edge_ids=..., inputs=...)` validates the original graph,
+expands it, and processes the acyclic plan in a spawned worker process. Execution is
+synchronous from the caller's perspective; this is not a background-job service.
+
+- Consumer node classes must be importable module-level definitions (not local classes).
+  Put them in a consumer module, rather than a Streamlit entry script or notebook cell.
+  CLI callers must protect invocation with `if __name__ == "__main__":`.
+  Registry classes and processing values must support multiprocessing transfer.
+  Transfer is preflighted before allocating worker pipes or starting a process.
+- Each expanded step gets a fresh node instance. Feedback state travels through edges,
+  not mutable node-instance fields. `self.context` supplies `original_node_id`, one-based
+  `iteration`, and configured `max_iterations` without changing the `process(inputs)` API.
+- Ports with `max_connections=1` receive a scalar or `None` when disconnected.
+  Other input ports receive ordered lists (empty when disconnected), following original
+  edge order. Values are independently copied for consumers; core never sums/mixes them.
+- Optional runtime `inputs` maps original node IDs to port/value mappings, keeping decoded
+  media out of graph JSON. Only unconnected optional scalar ports can be supplied;
+  unknown targets, connected ports and multi-connection ports are rejected. Values enter
+  only the first pass and are copied independently before processing.
+- Consumers must return exactly the declared output port keys. Processing/transfer failures
+  raise explicit errors, not success-shaped empty results.
+- `RunResult.outputs` maps original node IDs to the latest *completed component pass*.
+  Partial passes are not published. `snapshots` captures full cyclic-component passes on
+  multiples of `capture_every`. Acyclic nodes are executed once and are not loop snapshots.
+- Timeout covers validation/planning, worker startup, and execution. Runtime is capped at
+  the smaller of `LoopPolicy.timeout_seconds` and the 60-second server cap; acyclic runs
+  also have the 60-second cap. On timeout, the worker is terminated and joined, and the
+  result has `timed_out=True` with previously completed outputs/snapshots.
+  Worker startup and shutdown have scheduling/cleanup overhead; this is not a real-time timer.
+- Runs reject more than 1,000 scheduled snapshots, messages above 16 MiB, or retained
+  outputs/snapshots above 16 MiB. These are transfer/retention bounds, not a sandbox or
+  a hard operating-system memory limit on trusted consumer processing.
+- Core per-node result caching is not implemented yet; consumer purity/hash semantics must
+  be defined first. The example gallery separately caches decoded uploads and complete runs.
 
 ## 4. Streamlit UI design
 
@@ -116,7 +259,7 @@ Streamlit has no native draggable-canvas widget. Recommendation:
   per-port handles), so multi-port nodes map ports via edge metadata / the inspector panel.
 - **Phase 2 (if needed):** custom Streamlit component (React Flow / Rete.js) for
   per-port handles, icons, port-limit enforcement on the client, and tap-to-select-then-tap-to-place
-  on touch devices.
+  on touch devices (deferred; inspector movement is the accepted initial touch workflow).
 
 Page layout:
 
@@ -132,14 +275,62 @@ Page layout:
                                                     └────────────────────────┘
 ```
 
-Interaction: mouse drag to reposition; on touch, **tap to select, tap empty canvas to
-move** the selected node there. Positions are stored in the graph.
+Interaction: mouse drag to reposition; on touch, **tap to select, then use inspector
+X/Y or Left/Right/Up/Down controls**. Positions are stored in the graph. The ready-made
+component does not expose empty-canvas tap coordinates through its Python API; literal
+tap-select-then-tap-canvas placement is deferred to a custom component.
+
+### Implemented editor
+
+- `EditorAdapter(graph, registry)` owns the current graph, selection, canvas state and
+  explicitly chosen feedback edge IDs. Store one per Streamlit session, then call
+  `render_editor(adapter)`. Read accepted edits from `adapter.graph`.
+- The palette lists `registry.node_types()` in registration order, grouped in labels by
+  category. Add nodes with validated defaults or supplied parameters; deleting a node
+  removes its attached edges.
+- Drag connections directly only when both endpoint directions have exactly one named
+  port. Multi-port connections use the Connections panel's node and port selectors.
+  Existing named-port mappings survive canvas round-trips. Disconnect through the panel
+  or delete an edge on the canvas.
+- Edits are transactional: unknown ports, incompatible types, capacity overflow, duplicate
+  connections and forbidden cycles show errors and leave the last valid graph untouched.
+  Edit-time validation uses `validate_connections(..., require_minimums=False)` so users
+  can build incomplete graphs. Default/core execution validation still enforces minimums.
+- Feedback is toggled once per graph, with iteration, timeout and capture settings.
+  Disabling feedback is rejected while cycles remain. Choose next-iteration edges
+  explicitly in Connections; Apply feedback boundaries verifies every cycle is broken.
+  These choices are session editor metadata, not yet persisted in graph JSON.
+- The inspector displays port types and limits and generates boolean, numeric, text and
+  inline-enum fields from a consumer parameter model. Nested/nullable/reference-based
+  fields use JSON text; Pydantic validates the submitted values and constraints.
+  Required parameters can be supplied in the palette before adding the node.
+- `Validate graph` checks run readiness, parameter schemas and spiral boundaries without
+  executing processing. The Phase 4 consumer gallery adds its own Run button and renderers.
+- Selection and graph data persist across ordinary Streamlit reruns, not browser-session
+  loss. Reload/download persistence belongs to the storage milestone.
 
 ## 5. Visualization (proof-of-concept level)
-- Audio: waveform via Plotly (downsampled for large files), `st.audio` playback, WAV export
-  via `st.download_button`.
-- Image: `st.image` for input and final output; optional per-stage thumbnails.
-- Loop runs: chart of a chosen value over captured iterations.
+- Implemented in `examples/`, selected through the demo sidebar; processing stays outside
+  the framework core. Each example has independent session editor state.
+- Audio: generated sample or WAV upload, gain / low-pass / additive delay, input and
+  output Plotly waveforms (maximum 2,000 points/channel), playback and PCM16 WAV export.
+  Delay follows `y[n] = x[n] + feedback * y[n - delay_samples]` independently per channel.
+  Length/sample rate are preserved with no appended tail; export/playback clip to [-1, 1],
+  warning on overflow. Defaults feed the preceding output into the next sample.
+- Image: generated sample or PNG/JPEG upload; grayscale / blur / invert with input and
+  final RGB display, plus PNG export. EXIF orientation is applied; alpha is discarded.
+- Logic: constant / NOT chain initially, with AND / OR / XOR available in the palette;
+  output values shown as JSON. Electronics is a symbolic supply / resistor / LED readout.
+- Upload limits: 5 MiB; audio nonempty and at most 5 seconds, mono/stereo, 8–48 kHz;
+  images at most 262,144 pixels. Decoders check metadata limits before full decoding.
+- Gallery previews/exports target the original media `input` and `output` node IDs.
+  Missing/replaced originals fail explicitly. Uploads and complete executions use bounded
+  Streamlit caches; session state keeps only editor data and the last-run fingerprint.
+  Graph/input changes hide stale results until Run is clicked again.
+- Captured loop passes are listed by component and iteration after execution. Manual
+  graph-wide one-click iteration advancement is deferred in FUTURE.md; it requires
+  resumable state and synchronization, not replay. Per-pass value charts and stage
+  thumbnails remain future consumer enhancements.
 
 ## 6. Storage
 

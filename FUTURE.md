@@ -3,6 +3,9 @@
 Ideas parked here are **out of scope** until promoted into [PROGRESS.md](./PROGRESS.md).
 
 ## Editor
+- Literal tap-select-then-tap-empty-canvas placement: deferred by agreement because the
+  ready-made Python API does not expose pane-tap coordinates. Phase 3 uses inspector
+  coordinates and directional touch buttons instead.
 - Custom Streamlit component (React Flow / Rete.js) with per-port handles and client-side
   rule enforcement
 - Sub-graphs / grouped nodes ("macro" nodes) with exposed ports
@@ -11,6 +14,11 @@ Ideas parked here are **out of scope** until promoted into [PROGRESS.md](./PROGR
 - Keyboard shortcuts; improved touch gestures (pinch zoom, long-press menu)
 
 ## Execution
+- Manual global feedback stepping: one tap/click advances every feedback loop in the
+  graph by one iteration, then pauses for inspection. This requires resumable execution
+  state, a defined synchronization rule for connected cyclic groups, and reset/invalidation
+  when the graph or inputs change. Iteration/time/resource caps still apply; advancing
+  must not replay all earlier passes. Separate from audio sample-level feedback.
 - Async / background execution with progress reporting and cancellation
 - Partial re-execution (only dirty downstream nodes)
 - Real-time / streaming audio (block-based) and live mic input
@@ -21,6 +29,8 @@ Ideas parked here are **out of scope** until promoted into [PROGRESS.md](./PROGR
 ## Domains
 - Electronic circuit simulation (e.g. PySpice/ngspice integration)
 - Video frame chains; 3D/shader nodes
+- Consumer-defined mapping of spiral iterations to successive image/video frames,
+  including AVI import/export (no video codec or frame acquisition in core)
 - Data-pipeline / ETL nodes; ML inference nodes
 - Sandboxed user-scripted code nodes
 
