@@ -36,6 +36,14 @@ Report vulnerabilities privately via GitHub Security Advisories on this reposito
   10,000 nodes and 100,000 edges, with an explicit supported schema version.
   Imports reject duplicate JSON keys and non-finite numeric values. Imported node types
   must already be registered; full connection/feedback checks still run before execution.
+- Editor documents are capped at 25 MiB and include the core graph plus feedback-edge
+  selections. The loader also accepts core graph JSON and resolves every type through the
+  supplied registry. Upload failures are reported without replacing the active editor.
+- `LocalJsonStore` is for trusted local application deployments only. It restricts names
+  to simple `.igomgo.json` filenames under its configured directory, rejects symlinks,
+  reads at most 25 MiB, and uses atomic replacement. Do not expose server-local storage as
+  per-user persistence on a shared host; use browser download/upload or an explicitly
+  isolated authenticated store instead.
 - **User-provided code nodes** are not supported (see FUTURE.md); if ever added they need
   a real sandbox.
 - **Rendering:** do not use `unsafe_allow_html=True` with user-supplied strings (node

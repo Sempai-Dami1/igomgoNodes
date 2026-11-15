@@ -6,7 +6,7 @@ from streamlit_flow.elements import StreamlitFlowEdge
 from streamlit_flow.state import StreamlitFlowState
 
 from examples.editor_demo import demo_graph, demo_registry
-from igomgo_nodes.core import Graph, GraphPolicy, LoopPolicy, NodeInstance, Position
+from igomgo_nodes.core import Edge, Graph, GraphPolicy, LoopPolicy, NodeInstance, Position
 from igomgo_nodes.ui import EditorAdapter
 
 
@@ -133,3 +133,44 @@ def test_parameter_model_is_validated_when_nodes_are_executed_not_only_in_ui() -
     assert constant("default").params == {"value": True}
     with pytest.raises(ValidationError):
         constant("invalid", {"value": "not a boolean"})
+
+
+def test_replace_graph_restores_feedback_boundaries_and_is_transactional() -> None:
+    base = demo_graph()
+    graph = Graph(
+        nodes=base.nodes,
+        edges=(
+            base.edges[1],
+            Edge(
+                edge_id="feedback",
+                src_node="out",
+                src_port="value",
+                dst_node="stage",
+                dst_port="value",
+            ),
+        ),
+        policy=GraphPolicy(
+            allow_feedback=True, loop=LoopPolicy(max_iterations=2, timeout_seconds=1)
+        ),
+    )
+    editor = EditorAdapter(demo_graph(), demo_registry())
+    editor.replace_graph(graph, frozenset({"feedback"}))
+    assert editor.graph == graph
+    assert editor.feedback_edge_ids == frozenset({"feedback"})
+    assert editor.selected_id is None
+
+    original = editor.graph
+    with pytest.raises(ValueError, match="reference edges"):
+        editor.replace_graph(graph, frozenset({"missing"}))
+    assert editor.graph is original
+    assert editor.feedback_edge_ids == frozenset({"feedback"})
+
+    invalid_node = original.nodes[0].model_copy(update={"params": {"value": "not a boolean"}})
+    invalid_graph = Graph(
+        nodes=(invalid_node, *original.nodes[1:]),
+        edges=original.edges,
+        policy=original.policy,
+    )
+    with pytest.raises(ValidationError):
+        editor.replace_graph(invalid_graph, frozenset({"feedback"}))
+    assert editor.graph is original

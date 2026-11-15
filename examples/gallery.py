@@ -19,10 +19,13 @@ from igomgo_nodes.core import (
     dumps_graph,
     loads_graph,
 )
+from igomgo_nodes.storage import BrowserFileStore
 from igomgo_nodes.ui import EditorAdapter, render_editor
 
 from . import audio_poc, electronics_poc, image_poc
 from .editor_demo import demo_graph, demo_registry
+
+BROWSER_STORE = BrowserFileStore()
 
 
 def example_graph(name: str) -> tuple[Graph, NodeRegistry]:
@@ -88,15 +91,25 @@ def _show_input(name: str, data: bytes) -> None:
     if name == "Audio":
         st.subheader("Input waveform")
         audio = audio_input(data)
-        st.plotly_chart(waveform(audio), key="input_waveform", use_container_width=True)
-        st.audio(audio_poc.encode_wav(audio), format="audio/wav")
+        st.plotly_chart(
+            waveform(audio),
+            key="input_waveform",
+            width="stretch",
+            alt="Input audio waveform by channel",
+        )
+        st.audio(audio_poc.encode_wav(audio), format="audio/wav", alt="Input audio playback")
         st.caption(
             "WAV: up to 5 seconds, mono/stereo, 8-48 kHz. "
             "Waveforms show at most 2,000 points/channel."
         )
     elif name == "Image":
         st.subheader("Input image")
-        st.image(image_input(data), caption="Decoded RGB input", width=360)
+        st.image(
+            image_input(data),
+            caption="Decoded RGB input",
+            width=360,
+            alt="Input image before processing",
+        )
         st.caption("PNG/JPEG: up to 262,144 pixels and 5 MiB. Effects use RGB.")
     elif name == "Electronics":
         st.info(
@@ -118,13 +131,18 @@ def _show_result(name: str, result: RunResult) -> None:
         if not isinstance(value, audio_poc.AudioBuffer):
             raise ValueError("The output node did not produce audio")
         st.subheader("Output waveform")
-        st.plotly_chart(waveform(value), key="output_waveform", use_container_width=True)
+        st.plotly_chart(
+            waveform(value),
+            key="output_waveform",
+            width="stretch",
+            alt="Processed audio waveform by channel",
+        )
         if np.max(np.abs(value.samples)) > 1:
             st.warning(
                 "Output exceeds full scale. Playback/export clips to [-1, 1]; reduce gain/feedback."
             )
         encoded = audio_poc.encode_wav(value)
-        st.audio(encoded, format="audio/wav")
+        st.audio(encoded, format="audio/wav", alt="Processed audio playback")
         st.download_button("Download output WAV", encoded, "igomgo-output.wav", mime="audio/wav")
     elif name == "Image":
         pixels = result.outputs.get("output", {}).get("data")
@@ -134,7 +152,12 @@ def _show_result(name: str, result: RunResult) -> None:
         if not isinstance(pixels, np.ndarray):
             raise ValueError("The output node did not produce an image")
         st.subheader("Final image")
-        st.image(pixels, caption="Final chain output", width=360)
+        st.image(
+            pixels,
+            caption="Final chain output",
+            width=360,
+            alt="Final image after processing",
+        )
         st.download_button(
             "Download output PNG",
             image_poc.encode_png(pixels),
@@ -170,6 +193,40 @@ def render_gallery() -> None:
         graph, registry = example_graph(name)
         st.session_state[editor_key] = EditorAdapter(graph, registry)
     editor: EditorAdapter = st.session_state[editor_key]
+    st.sidebar.subheader("Graph file")
+    try:
+        graph_file = BROWSER_STORE.serialize(editor.graph, editor.feedback_edge_ids)
+    except (ValueError, KeyError) as error:
+        graph_file = None
+        st.sidebar.error(f"Cannot save this graph: {error}")
+    if graph_file is not None:
+        st.sidebar.download_button(
+            "Download graph",
+            data=graph_file,
+            file_name=f"{name.lower()}-graph.igomgo.json",
+            mime="application/json",
+            key=f"{editor_key}_graph_download",
+        )
+    uploaded_graph = st.sidebar.file_uploader(
+        "Load graph",
+        type=["json"],
+        key=f"{editor_key}_graph_upload",
+    )
+    loaded_hash_key = f"{editor_key}_loaded_graph_hash"
+    if uploaded_graph is None:
+        st.session_state.pop(loaded_hash_key, None)
+    else:
+        uploaded_bytes = uploaded_graph.getvalue()
+        uploaded_hash = hashlib.sha256(uploaded_bytes).hexdigest()
+        if st.session_state.get(loaded_hash_key) != uploaded_hash:
+            try:
+                document = BROWSER_STORE.deserialize(uploaded_bytes, editor.registry)
+                editor.replace_graph(document.graph, frozenset(document.feedback_edge_ids))
+                st.session_state[loaded_hash_key] = uploaded_hash
+                st.session_state.pop(f"{editor_key}_last_run", None)
+                st.sidebar.success("Graph loaded.")
+            except (ValueError, KeyError, OSError) as error:
+                st.sidebar.error(f"Graph not loaded: {error}")
     data = b""
     if name in ("Audio", "Image"):
         upload = st.sidebar.file_uploader(

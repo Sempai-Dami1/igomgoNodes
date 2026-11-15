@@ -1,9 +1,12 @@
 import numpy as np
 import pytest
 from streamlit.testing.v1 import AppTest
-from streamlit.testing.v1.element_tree import Button, Selectbox
+from streamlit.testing.v1.element_tree import Button, FileUploader, Selectbox
 
 from examples import audio_poc, image_poc
+from examples.editor_demo import demo_graph
+from igomgo_nodes.core import Graph
+from igomgo_nodes.storage import BrowserFileStore
 
 
 def test_app_renders_without_errors() -> None:
@@ -19,6 +22,10 @@ def _button(at: AppTest, label: str) -> Button:
 
 def _selectbox(at: AppTest, label: str) -> Selectbox:
     return next(selectbox for selectbox in at.selectbox if selectbox.label == label)
+
+
+def _file_uploader(at: AppTest, label: str) -> FileUploader:
+    return next(uploader for uploader in at.file_uploader if uploader.label == label)
 
 
 def test_palette_parameters_and_touch_movement_persist_across_reruns() -> None:
@@ -95,6 +102,8 @@ def test_gallery_runs_generated_examples(name: str, element: str, count: int) ->
     assert any(message.value == "Run complete." for message in at.success)
     assert len(at.get(element)) == count
     if name in ("Audio", "Image"):
+        assert len(at.get("download_button")) == 2
+    else:
         assert len(at.get("download_button")) == 1
     if name == "Audio":
         assert len(at.get("audio")) == 2
@@ -112,7 +121,7 @@ def test_gallery_surfaces_consumer_errors_without_a_completed_result() -> None:
     _button(at, "Run graph").click().run()
     assert not at.exception
     assert any("half the sample rate" in message.value for message in at.error)
-    assert not at.get("download_button")
+    assert len(at.get("download_button")) == 1
     assert not any(message.value == "Run complete." for message in at.success)
 
 
@@ -129,15 +138,51 @@ def test_upload_changes_invalidate_output_and_decode_errors_are_visible(name: st
     at = AppTest.from_file("../app.py", default_timeout=30).run()
     _selectbox(at, "Example").select(name).run()
     _button(at, "Run graph").click().run()
-    at.file_uploader[0].set_value((filename, data, mime)).run()
+    media_uploader = _file_uploader(at, "WAV input" if name == "Audio" else "Image input")
+    media_uploader.set_value((filename, data, mime)).run()
     assert not at.exception
     assert any("Run again" in message.value for message in at.info)
-    assert not at.get("download_button")
+    assert len(at.get("download_button")) == 1
     _button(at, "Run graph").click().run()
     assert not at.exception
     assert not at.error
-    assert len(at.get("download_button")) == 1
-    at.file_uploader[0].set_value((filename, b"corrupt media", mime)).run()
+    assert len(at.get("download_button")) == 2
+    _file_uploader(at, "WAV input" if name == "Audio" else "Image input").set_value(
+        (filename, b"corrupt media", mime)
+    ).run()
     assert not at.exception
     assert at.error
-    assert not at.get("download_button")
+    assert len(at.get("download_button")) == 1
+
+
+def test_graph_file_download_and_import_restore_graph_transactionally() -> None:
+    at = AppTest.from_file("../app.py", default_timeout=30).run()
+    assert any(button.label == "Download graph" for button in at.download_button)
+    graph = demo_graph()
+    imported_graph = Graph(
+        nodes=(
+            graph.nodes[0].model_copy(update={"params": {"value": False}}),
+            *graph.nodes[1:],
+        ),
+        edges=graph.edges,
+        policy=graph.policy,
+    )
+    payload = BrowserFileStore().serialize(imported_graph)
+    graph_uploader = _file_uploader(at, "Load graph")
+    graph_uploader.set_value(("custom.igomgo.json", payload, "application/json")).run()
+    assert not at.exception
+    assert at.session_state["editor"].graph == imported_graph
+    assert any(message.value == "Graph loaded." for message in at.success)
+
+    at.session_state["editor"].update_params("in", {"value": True})
+    at.run()
+    assert not at.exception
+    assert at.session_state["editor"].node("in").params == {"value": True}
+
+    current_graph = at.session_state["editor"].graph
+    _file_uploader(at, "Load graph").set_value(
+        ("invalid.json", b"not-json", "application/json")
+    ).run()
+    assert not at.exception
+    assert at.session_state["editor"].graph == current_graph
+    assert any("Graph not loaded" in message.value for message in at.error)

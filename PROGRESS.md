@@ -58,9 +58,9 @@ Status legend: ⬜ not started · 🟨 in progress · ✅ done · ⏸ deferred
   (requires resumable state and synchronization without replaying prior passes)
 
 ## Phase 5 — Storage (anonymous, local)
-- ⬜ `GraphStore` interface
-- ⬜ `BrowserFileStore`: save via download, load via upload (validated JSON)
-- ⬜ `LocalJsonStore` for local `streamlit run` use
+- ✅ `GraphStore` byte interface and versioned editor document, including feedback boundaries
+- ✅ `BrowserFileStore`: sidebar download and validated upload, transactional editor replacement
+- ✅ `LocalJsonStore` for local `streamlit run` use (confined names, bounded reads, atomic writes)
 - ⏸ Supabase (`SupabaseStore`, anonymous sign-ins, RLS, private buckets) — see FUTURE.md
 
 ## Phase 6 — Release

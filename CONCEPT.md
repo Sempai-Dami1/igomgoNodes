@@ -342,9 +342,19 @@ tap-select-then-tap-canvas placement is deferred to a custom component.
   - **Load** → `st.file_uploader` reads that file back (validated before use).
   - Work in progress lives in `st.session_state` for the browser session only.
 - When running locally (`streamlit run app.py`), `LocalJsonStore` can also save to a
-  folder on disk.
-- Package exposes a `GraphStore` interface; `BrowserFileStore` (download/upload) and
-  `LocalJsonStore` (disk) ship in v0.1.
+  configured folder on disk, using an atomic file replacement.
+- Implemented in `igomgo_nodes.storage`: the byte-oriented `GraphStore` interface,
+  `BrowserFileStore` for download/upload bytes, and `LocalJsonStore` for local disk.
+- The versioned editor document wraps unchanged schema-v1 graph JSON with the editor's
+  selected feedback-edge IDs. It also imports core graph JSON documents without editor
+  metadata. Both document forms use strict UTF-8/JSON, duplicate-key and non-finite-number
+  checks, registry-only node types, and a 25 MiB whole-file cap.
+- The gallery exposes browser download/upload. Import validates the complete document and
+  candidate editor graph before replacing current state; failures leave it untouched.
+  Community Cloud never writes graphs to its temporary shared server disk.
+- `LocalJsonStore` confines names to simple `.igomgo.json` files inside its configured
+  directory, rejects symbolic links, bounds reads, and replaces saves atomically. It is
+  for local applications with a trusted directory, not shared-hosting persistence.
 
 ### Supabase (optional, later)
 - `SupabaseStore` stays behind the same interface as an optional extra
@@ -361,7 +371,7 @@ igomgoNodes/
 ├─ src/igomgo_nodes/
 │  ├─ core/        # ports, node, graph, policy, validation, executor, registry, serialization
 │  ├─ ui/          # Streamlit editor adapter, inspector, preview helpers
-│  ├─ storage/     # GraphStore interface, local JSON store, Supabase store
+│  ├─ storage/     # graph-file interface, browser transfer codec, local JSON store
 │  └─ viz/         # small helpers: waveform plot, image panels
 ├─ examples/
 │  ├─ logic/       # tiny logic gates demo

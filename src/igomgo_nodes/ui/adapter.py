@@ -165,6 +165,21 @@ class EditorAdapter:
         self.feedback_edge_ids = edge_ids
         self.refresh_canvas()
 
+    def replace_graph(self, graph: Graph, feedback_edge_ids: frozenset[str] = frozenset()) -> None:
+        self._validate(graph)
+        for node in graph.nodes:
+            self.registry.resolve(node.type_id).validate_params(node.params)
+        edge_ids = frozenset(edge.edge_id for edge in graph.edges)
+        if not feedback_edge_ids <= edge_ids:
+            raise ValueError("Feedback edge IDs must reference edges in the graph")
+        if feedback_edge_ids:
+            graph.unroll(feedback_edge_ids=feedback_edge_ids)
+        self.graph = graph
+        self.selected_id = None
+        self.feedback_edge_ids = feedback_edge_ids
+        self.notice = None
+        self.refresh_canvas()
+
     def accept_canvas(self, state: StreamlitFlowState) -> None:
         originals = {node.node_id: node for node in self.graph.nodes}
         if any(node.id not in originals for node in state.nodes):

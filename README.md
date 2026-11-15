@@ -126,6 +126,12 @@ Connections. Invalid connections show errors without changing the graph. Feedbac
 be enabled in Graph policy before closing a cycle; explicitly select the next-iteration
 connections afterward. Validate graph checks readiness without executing it.
 
+Use **Download graph** and **Load graph** in the sidebar to save or restore the editor
+state on your own computer. The versioned editor file contains the core graph JSON and
+its selected feedback boundaries. Loading is validated against the current consumer
+registry and applied transactionally; an invalid file leaves the current graph untouched.
+Core `dumps_graph` / `loads_graph` JSON files can also be loaded.
+
 For your own Streamlit consumer:
 
 ```python
@@ -143,9 +149,26 @@ Install the `ui` extra for this optional interface. Consumers can declare a Pyda
 validate parameters during processing construction. Without it, parameters use a JSON form.
 
 Touch movement uses tap-to-select followed by X/Y or directional inspector controls.
-Tap-on-empty-canvas placement needs a custom component and is deferred. Graph edits and
-feedback-edge choices currently live only in the browser's Streamlit session; saving/loading
-through the UI is the next milestone.
+Tap-on-empty-canvas placement needs a custom component and is deferred. The gallery's
+browser file controls download/upload graph documents; there is no server-side per-user
+save on Community Cloud.
+
+For applications that run locally, the optional `LocalJsonStore` writes validated files
+inside one configured directory using atomic replacement and rejects path separators,
+symlinks, and oversized files:
+
+```python
+from igomgo_nodes.storage import LocalJsonStore
+
+store = LocalJsonStore("saved_graphs")
+store.save(graph, feedback_edge_ids=editor.feedback_edge_ids)
+document = store.load(registry)
+```
+
+`BrowserFileStore.serialize(graph, feedback_edge_ids)` returns download-ready bytes;
+`deserialize(data, registry)` returns a `GraphDocument`. This file wrapper preserves
+feedback-edge selections without changing the core graph schema. The local store's
+default directory is `saved_graphs/` and is ignored by Git.
 
 ## Small runnable examples
 
