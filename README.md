@@ -2,17 +2,21 @@
 Graphical nodes that can represent a process, logical flow, input-output system, script/code blocks. The user can allow multiple inputs and outputs and also allow/deny a feedback loop. Initial usage will be for sound filters chain, 2D chain effect , electronic components.
 
 ## Install (consumers)
-Installed directly from GitHub (no PyPI release yet). Pin a release tag:
+Installed directly from GitHub (no PyPI release yet). Until the first release tag is
+published, use the development branch:
 
 ```
-pip install "git+https://github.com/Sempai-Dami1/igomgoNodes.git@v0.1.0"
+pip install "igomgonodes @ git+https://github.com/Sempai-Dami1/igomgoNodes.git@main"
 ```
 
-Or add the same line (without `pip install`) to your `requirements.txt` for Streamlit Community Cloud.
+After `v0.1.0` is published, replace `main` with `v0.1.0` to pin the release. The
+repository is private, so Git must have authorized access in the installing environment.
+Never put credentials in the URL or commit them to a dependency file.
 
 ## Documentation
 - [CONCEPT.md](./CONCEPT.md) — vision, architecture, core model, UI and storage design
 - [PROGRESS.md](./PROGRESS.md) — roadmap and status
+- [Consumer guide](./docs/consumer-guide.md) — install, implement a node, build and run a graph
 - [AGENTS.md](./AGENTS.md) — rules for contributors and AI agents
 - [SECURITY.md](./SECURITY.md) — security policy and requirements
 - [FUTURE.md](./FUTURE.md) — deferred features and ideas

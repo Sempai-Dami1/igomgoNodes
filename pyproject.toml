@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "igomgonodes"
-version = "0.0.1"
+version = "0.1.0"
 description = "Base framework for draggable node graphs (ports, rules, bounded feedback) in Streamlit."
 readme = "README.md"
 requires-python = ">=3.11"
