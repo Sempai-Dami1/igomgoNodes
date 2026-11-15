@@ -7,18 +7,16 @@ numeric-processing dependencies.
 
 ## Install
 
-Until the first release tag is published, install the current development branch for
-evaluation:
-
-```powershell
-pip install "igomgonodes[ui] @ git+https://github.com/Sempai-Dami1/igomgoNodes.git@main"
-```
-
-After `v0.1.0` is published, a deployed consumer can use the tag instead of the mutable
-`main` branch:
+For a deployed consumer, use a tagged release instead of the mutable `main` branch:
 
 ```powershell
 pip install "igomgonodes[ui] @ git+https://github.com/Sempai-Dami1/igomgoNodes.git@v0.1.0"
+```
+
+For development, install the current branch instead:
+
+```powershell
+pip install "igomgonodes[ui] @ git+https://github.com/Sempai-Dami1/igomgoNodes.git@main"
 ```
 
 The repository is private: installation requires GitHub access for the account and

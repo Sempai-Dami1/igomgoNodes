@@ -26,4 +26,4 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: pyright
-      - run: pytest
+      - run: python -m pytest

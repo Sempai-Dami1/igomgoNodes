@@ -2,16 +2,14 @@
 Graphical nodes that can represent a process, logical flow, input-output system, script/code blocks. The user can allow multiple inputs and outputs and also allow/deny a feedback loop. Initial usage will be for sound filters chain, 2D chain effect , electronic components.
 
 ## Install (consumers)
-Installed directly from GitHub (no PyPI release yet). Until the first release tag is
-published, use the development branch:
+Installed directly from GitHub (no PyPI release yet). Pin the release tag:
 
 ```
-pip install "igomgonodes @ git+https://github.com/Sempai-Dami1/igomgoNodes.git@main"
+pip install "igomgonodes @ git+https://github.com/Sempai-Dami1/igomgoNodes.git@v0.1.0"
 ```
 
-After `v0.1.0` is published, replace `main` with `v0.1.0` to pin the release. The
-repository is private, so Git must have authorized access in the installing environment.
-Never put credentials in the URL or commit them to a dependency file.
+The repository is private, so Git must have authorized access in the installing
+environment. Never put credentials in the URL or commit them to a dependency file.
 
 ## Documentation
 - [CONCEPT.md](./CONCEPT.md) — vision, architecture, core model, UI and storage design

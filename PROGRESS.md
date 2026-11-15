@@ -67,4 +67,4 @@ Status legend: ⬜ not started · 🟨 in progress · ✅ done · ⏸ deferred
 - ✅ Consumer guide: install, implement a node, execute connected graphs, bounded feedback,
   editor integration, and storage
 - 🟨 Demo deployed to Streamlit Community Cloud; anonymous access verification pending
-- ⬜ Tag v0.1.0 (consumers install via `git+https://github.com/Sempai-Dami1/igomgoNodes.git@v0.1.0`)
+- ✅ Tag v0.1.0 (consumers install via `git+https://github.com/Sempai-Dami1/igomgoNodes.git@v0.1.0`)
