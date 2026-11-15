@@ -1,0 +1,6 @@
+[server]
+# Upload cap in MB for graph JSON, WAV and image files (see SECURITY.md).
+maxUploadSize = 25
+
+[browser]
+gatherUsageStats = false

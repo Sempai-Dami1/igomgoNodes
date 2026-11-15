@@ -1,0 +1,2 @@
+# Streamlit Community Cloud installs from this file; installs this repo with the example extras.
+.[examples]
