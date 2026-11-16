@@ -1,5 +1,6 @@
 """Streamlit-only previews and delivery for the small consumer examples."""
 
+import base64
 import hashlib
 import json
 
@@ -9,6 +10,7 @@ import soundfile as sf
 import streamlit as st
 from numpy.typing import NDArray
 from PIL import Image
+from streamlit.components.v2 import component as component_v2
 
 from igomgo_nodes.core import (
     ExecutionError,
@@ -27,6 +29,109 @@ from .editor_demo import demo_graph, demo_registry
 
 BROWSER_STORE = BrowserFileStore()
 
+_FRAME_PLAYER = component_v2(
+    "igomgo_image_feedback_player",
+    html="""
+        <div>
+          <img id="frame" width="320" alt="Feedback iteration image">
+          <p id="status" role="status">Loading feedback frames...</p>
+          <button id="previous" type="button" disabled>Previous</button>
+          <button id="play" type="button" disabled>Play</button>
+          <button id="next" type="button" disabled>Next</button>
+          <label>Playback speed (frames per second)
+            <input id="fps" type="number" min="1" max="60" step="1" value="32">
+          </label>
+          <p><label>Choose iteration
+            <input id="position" type="range" min="0" value="0" disabled>
+          </label></p>
+        </div>
+    """,
+    js="""
+        const players = new WeakMap();
+        export default function({data, parentElement}) {
+          const previousPlayer = players.get(parentElement);
+          if (previousPlayer) previousPlayer();
+          const image = parentElement.querySelector("#frame");
+          const status = parentElement.querySelector("#status");
+          const previous = parentElement.querySelector("#previous");
+          const next = parentElement.querySelector("#next");
+          const play = parentElement.querySelector("#play");
+          const fps = parentElement.querySelector("#fps");
+          const position = parentElement.querySelector("#position");
+          const frames = data.frames;
+          previous.disabled = next.disabled = play.disabled = position.disabled = true;
+          status.textContent = "Loading feedback frames...";
+          let index = -1;
+          let timer = null;
+          let active = true;
+          let started = null;
+          let startIndex = 0;
+
+          function show(i) {
+            const target = Math.max(0, Math.min(i, frames.length - 1));
+            if (target === index) return;
+            index = target;
+            image.src = frames[index].src;
+            image.alt = `Feedback iteration ${frames[index].iteration}`;
+            status.textContent =
+              `Iteration ${frames[index].iteration} (${index + 1}/${frames.length})`;
+            position.value = String(index);
+          }
+          function stop() {
+            if (timer !== null) cancelAnimationFrame(timer);
+            timer = null;
+            play.textContent = "Play";
+          }
+          function tick(now) {
+            if (!fps.checkValidity()) { stop(); fps.reportValidity(); return; }
+            if (started === null) started = now;
+            const nextIndex = startIndex + Math.floor((now - started) * fps.valueAsNumber / 1000);
+            show(nextIndex);
+            if (nextIndex >= frames.length) { stop(); return; }
+            timer = requestAnimationFrame(tick);
+          }
+          previous.onclick = () => { stop(); show(index - 1); };
+          next.onclick = () => { stop(); show(index + 1); };
+          position.oninput = () => { stop(); show(Number(position.value)); };
+          fps.onchange = () => { if (timer !== null) stop(); };
+          play.onclick = () => {
+            if (timer !== null) { stop(); return; }
+            if (!fps.checkValidity()) { fps.reportValidity(); return; }
+            if (index === frames.length - 1) show(0);
+            startIndex = index;
+            started = null;
+            play.textContent = "Pause";
+            timer = requestAnimationFrame(tick);
+          };
+          position.max = String(frames.length - 1);
+          const images = frames.map(() => new Image());
+          const loaded = images.map((preload, i) => new Promise((resolve, reject) => {
+            preload.onload = resolve;
+            preload.onerror = reject;
+            preload.src = frames[i].src;
+          }));
+          Promise.all(loaded).then(() => {
+            if (!active) return;
+            previous.disabled = false;
+            next.disabled = false;
+            play.disabled = false;
+            position.disabled = false;
+            show(0);
+          }).catch(() => {
+            if (active) status.textContent = "Unable to load feedback frames.";
+          });
+          const dispose = () => { active = false; stop(); };
+          players.set(parentElement, dispose);
+          return () => {
+            if (players.get(parentElement) === dispose) {
+              dispose();
+              players.delete(parentElement);
+            }
+          };
+        }
+    """,
+)
+
 
 def example_graph(name: str) -> tuple[Graph, NodeRegistry]:
     if name == "Logic":
@@ -35,6 +140,8 @@ def example_graph(name: str) -> tuple[Graph, NodeRegistry]:
         return audio_poc.demo()
     if name == "Image":
         return image_poc.demo()
+    if name == "Image feedback":
+        return image_poc.feedback_demo()
     if name == "Electronics":
         return electronics_poc.demo()
     raise ValueError(f"Unknown example: {name}")
@@ -51,18 +158,28 @@ def image_input(data: bytes) -> NDArray[np.uint8]:
 
 
 @st.cache_data(max_entries=4, show_spinner=False)
+def feedback_image_input(data: bytes) -> NDArray[np.uint8]:
+    return image_poc.feedback_image(data)
+
+
+@st.cache_data(max_entries=4, show_spinner=False)
 def run_example(name: str, document: str, data: bytes, feedback: tuple[str, ...]) -> RunResult:
     _, registry = example_graph(name)
     graph = loads_graph(document, registry)
     inputs: dict[str, dict[str, object]] = {}
-    if name in ("Audio", "Image"):
+    if name in ("Audio", "Image", "Image feedback"):
         types = {node.node_id: node.type_id for node in graph.nodes}
-        domain = name.lower()
+        domain = "audio" if name == "Audio" else "image"
         if types.get("input") != f"{domain}.input" or types.get("output") != f"{domain}.output":
             raise ValueError(
                 "Keep the demo's original input and output nodes to preview/export media"
             )
-        payload = audio_input(data) if name == "Audio" else image_input(data)
+        if name == "Audio":
+            payload = audio_input(data)
+        elif name == "Image feedback":
+            payload = feedback_image_input(data)
+        else:
+            payload = image_input(data)
         inputs["input"] = {"data": payload}
     return Executor().run(graph, registry, inputs=inputs, feedback_edge_ids=frozenset(feedback))
 
@@ -102,14 +219,16 @@ def _show_input(name: str, data: bytes) -> None:
             "WAV: up to 5 seconds, mono/stereo, 8-48 kHz. "
             "Waveforms show at most 2,000 points/channel."
         )
-    elif name == "Image":
+    elif name in ("Image", "Image feedback"):
         st.subheader("Input image")
         st.image(
-            image_input(data),
+            feedback_image_input(data) if name == "Image feedback" else image_input(data),
             caption="Decoded RGB input",
             width=360,
             alt="Input image before processing",
         )
+        if name == "Image feedback":
+            st.caption("Input is reduced to at most 64 × 64 pixels for feedback preview.")
         st.caption("PNG/JPEG: up to 262,144 pixels and 5 MiB. Effects use RGB.")
     elif name == "Electronics":
         st.info(
@@ -144,26 +263,26 @@ def _show_result(name: str, result: RunResult) -> None:
         encoded = audio_poc.encode_wav(value)
         st.audio(encoded, format="audio/wav", alt="Processed audio playback")
         st.download_button("Download output WAV", encoded, "igomgo-output.wav", mime="audio/wav")
-    elif name == "Image":
+    elif name in ("Image", "Image feedback"):
         pixels = result.outputs.get("output", {}).get("data")
         if pixels is None and result.timed_out:
             st.warning("No final image was completed.")
-            return
-        if not isinstance(pixels, np.ndarray):
+        elif not isinstance(pixels, np.ndarray):
             raise ValueError("The output node did not produce an image")
-        st.subheader("Final image")
-        st.image(
-            pixels,
-            caption="Final chain output",
-            width=360,
-            alt="Final image after processing",
-        )
-        st.download_button(
-            "Download output PNG",
-            image_poc.encode_png(pixels),
-            "igomgo-output.png",
-            mime="image/png",
-        )
+        else:
+            st.subheader("Final image")
+            st.image(
+                pixels,
+                caption="Final chain output",
+                width=360,
+                alt="Final image after processing",
+            )
+            st.download_button(
+                "Download output PNG",
+                image_poc.encode_png(pixels),
+                "igomgo-output.png",
+                mime="image/png",
+            )
     elif name == "Electronics":
         st.subheader("Symbolic output")
         value = result.outputs.get("output", {}).get("data")
@@ -177,6 +296,22 @@ def _show_result(name: str, result: RunResult) -> None:
     if result.snapshots:
         st.subheader("Captured feedback passes")
         st.caption("Review of completed runs, not manual execution stepping.")
+        if name == "Image feedback":
+            frames: list[dict[str, object]] = []
+            for snapshot in result.snapshots:
+                if "blur" not in snapshot.outputs:
+                    continue
+                pixels = snapshot.outputs["blur"].get("data")
+                if not isinstance(pixels, np.ndarray):
+                    raise ValueError("The feedback blur did not produce an image")
+                encoded = base64.b64encode(image_poc.encode_png(pixels)).decode("ascii")
+                frames.append(
+                    {"iteration": snapshot.iteration, "src": f"data:image/png;base64,{encoded}"}
+                )
+            if frames:
+                _FRAME_PLAYER(data={"frames": frames}, key="image_feedback_player")
+            else:
+                st.info("No feedback blur frames were captured in this run.")
         st.dataframe(
             [
                 {"component": ", ".join(snapshot.component), "iteration": snapshot.iteration}
@@ -187,11 +322,16 @@ def _show_result(name: str, result: RunResult) -> None:
 
 
 def render_gallery() -> None:
-    name = st.sidebar.selectbox("Example", ("Logic", "Audio", "Image", "Electronics"))
-    editor_key = "editor" if name == "Logic" else f"editor_{name.lower()}"
+    name = st.sidebar.selectbox(
+        "Example", ("Logic", "Audio", "Image", "Image feedback", "Electronics")
+    )
+    editor_key = "editor" if name == "Logic" else f"editor_{name.lower().replace(' ', '_')}"
     if editor_key not in st.session_state:
         graph, registry = example_graph(name)
-        st.session_state[editor_key] = EditorAdapter(graph, registry)
+        editor = EditorAdapter(graph, registry)
+        if name == "Image feedback":
+            editor.set_feedback_edges(frozenset({image_poc.FEEDBACK_EDGE_ID}))
+        st.session_state[editor_key] = editor
     editor: EditorAdapter = st.session_state[editor_key]
     st.sidebar.subheader("Graph file")
     try:
@@ -228,7 +368,7 @@ def render_gallery() -> None:
             except (ValueError, KeyError, OSError) as error:
                 st.sidebar.error(f"Graph not loaded: {error}")
     data = b""
-    if name in ("Audio", "Image"):
+    if name in ("Audio", "Image", "Image feedback"):
         upload = st.sidebar.file_uploader(
             "WAV input" if name == "Audio" else "Image input",
             type=["wav"] if name == "Audio" else ["png", "jpg", "jpeg"],
@@ -239,6 +379,8 @@ def render_gallery() -> None:
             if upload is not None
             else audio_poc.sample_wav()
             if name == "Audio"
+            else image_poc.feedback_sample_png()
+            if name == "Image feedback"
             else image_poc.sample_png()
         )
         if upload is None:

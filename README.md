@@ -123,8 +123,11 @@ Run the demo from the repository root:
 ```
 
 The sidebar palette adds nodes; the inspector edits parameters and moves/deletes the
-selected node. Drag single-port connections on the canvas or select named ports in
-Connections. Invalid connections show errors without changing the graph. Feedback must
+selected node. Click or tap a node or connection to highlight it red, then use the
+on-screen delete control to remove it. Deleting a node also removes its connections.
+Drag single-port connections on the canvas or select named ports in Connections.
+Keyboard Delete is not supported; use the on-screen controls. Invalid connections show
+errors without changing the graph. Feedback must
 be enabled in Graph policy before closing a cycle; explicitly select the next-iteration
 connections afterward. Validate graph checks readiness without executing it.
 
@@ -174,15 +177,21 @@ default directory is `saved_graphs/` and is ignored by Git.
 
 ## Small runnable examples
 
-Select **Logic**, **Audio**, **Image**, or **Electronics** in the sidebar, edit the chain,
-then click **Run graph**. Audio and image examples start with generated samples; upload
-your own WAV or PNG/JPEG to replace them.
+Select **Logic**, **Audio**, **Image**, **Image feedback**, or **Electronics** in the sidebar,
+edit the chain, then click **Run graph**. Audio and image examples start with generated samples;
+upload your own WAV or PNG/JPEG to replace them.
 
 - Audio: gain, low-pass and additive sample delay; input/output waveform and playback;
   WAV download. Delay follows `y[n] = x[n] + feedback * y[n - delay_samples]`, preserves
   the original length, and does not append an echo tail. Playback/export clips to [-1, 1]
   with a warning if needed.
 - Image: grayscale, blur and invert; input/final RGB previews and PNG download.
+- Image feedback: generated 64×64 image → feedback blur → PNG output. The blur feeds its
+  previous result back for 32 graph passes. Review captured passes using Previous/Next,
+  the iteration slider, or browser playback (32 frames per second by default). Uploaded
+  images are reduced to fit within 64×64, preserving aspect ratio. Preview frames are
+  held in memory for the completed run and sent to the browser; no frame or video files
+  are saved. PNG download contains the final pass.
 - Logic: Boolean constants, NOT, AND, OR and XOR; inspect node output values.
 - Electronics: supply/resistor/LED labels only, not a circuit simulator.
 

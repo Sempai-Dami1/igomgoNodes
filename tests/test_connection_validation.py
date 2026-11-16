@@ -1,7 +1,9 @@
 from collections.abc import Mapping
 
 import pytest
+from pydantic import BaseModel, Field, JsonValue
 
+from examples.editor_demo import FeedbackNot
 from igomgo_nodes.core import BaseNode, Edge, Graph, NodeInstance, NodeRegistry, NodeSpec, PortSpec
 
 
@@ -170,3 +172,76 @@ def test_named_ports_are_counted_independently_within_a_node() -> None:
         ),
     )
     graph.validate_connections(registry)
+
+
+def test_instance_input_limit_counts_connections_across_ports() -> None:
+    class Params(BaseModel):
+        limit: int = Field(default=2, ge=0, le=2, strict=True)
+
+    class Relay(BaseNode):
+        parameter_model = Params
+        spec = NodeSpec(
+            type_id="test.limited",
+            title="Limited",
+            inputs=(PortSpec(name="a", dtype="bool"), PortSpec(name="b", dtype="bool")),
+            outputs=(PortSpec(name="out", dtype="bool", max_connections=None),),
+        )
+
+        @classmethod
+        def input_connection_limit(cls, params: Mapping[str, JsonValue]) -> int:
+            return Params.model_validate(params).limit
+
+        def process(self, inputs: Mapping[str, object]) -> dict[str, object]:
+            raise AssertionError("Validation must not execute processing")
+
+    registry = NodeRegistry()
+    registry.register(Relay)
+    graph = Graph(
+        nodes=(
+            NodeInstance(node_id="source", type_id="test.limited"),
+            NodeInstance(node_id="target", type_id="test.limited", params={"limit": 2}),
+        ),
+        edges=tuple(
+            Edge(edge_id=name, src_node="source", src_port="out", dst_node="target", dst_port=name)
+            for name in ("a", "b")
+        ),
+    )
+    graph.validate_connections(registry)
+    target = graph.nodes[1].model_copy(update={"params": {"limit": 1}})
+    limited = Graph(nodes=(graph.nodes[0], target), edges=graph.edges)
+    with pytest.raises(ValueError, match="2 incoming connections, maximum is 1"):
+        limited.validate_connections(registry)
+    invalid = target.model_copy(update={"params": {"limit": 3}})
+    with pytest.raises(ValueError, match="less than or equal to 2"):
+        Graph(nodes=(graph.nodes[0], invalid), edges=graph.edges).validate_connections(registry)
+
+
+def test_configured_direct_loopbacks_reject_two_feedback_values_to_one_port() -> None:
+    class MultiOutput(FeedbackNot):
+        spec = FeedbackNot.spec.model_copy(
+            update={
+                "type_id": "test.multi_output",
+                "outputs": (
+                    PortSpec(name="first", dtype="bool"),
+                    PortSpec(name="second", dtype="bool"),
+                ),
+            }
+        )
+
+    registry = NodeRegistry()
+    registry.register(MultiOutput)
+    graph = Graph(
+        nodes=(NodeInstance(node_id="stage", type_id="test.multi_output"),),
+        edges=tuple(
+            Edge(
+                edge_id=port,
+                src_node="stage",
+                src_port=port,
+                dst_node="stage",
+                dst_port="value",
+            )
+            for port in ("first", "second")
+        ),
+    )
+    with pytest.raises(ValueError, match="only one direct loopback"):
+        graph.validate_connections(registry)

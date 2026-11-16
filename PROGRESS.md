@@ -42,8 +42,14 @@ Status legend: ⬜ not started · 🟨 in progress · ✅ done · ⏸ deferred
 - ✅ Palette, drag/reposition, tap-select + inspector movement, connect/disconnect
   (literal tap-on-canvas placement deferred by agreement; see FUTURE.md)
 - ✅ Inspector panel (Pydantic parameter-schema forms, port details, validated edits)
+- 🟨 Red node/connection selection and on-screen deletion implemented; visual canvas check pending.
+  Keyboard Delete deferred.
+- ✅ Consumer-schema settings for per-instance incoming-edge limits and direct self-loop modes,
+  with node-level feedback-boundary selection and a bounded logic consumer example
 - ✅ Rule feedback in UI (transactional rejected connections, loop policy and boundary controls,
   explicit run-readiness validation; incomplete graphs allowed during editing)
+- ⏸ Double-click / double-tap edge deletion and drag-to-rewire gestures deferred to a
+  custom canvas; see FUTURE.md
 
 ## Phase 4 — Proof-of-concept examples
 - ✅ Logic gates demo (constant, NOT, AND, OR, XOR; run and inspect outputs)
@@ -51,6 +57,8 @@ Status legend: ⬜ not started · 🟨 in progress · ✅ done · ⏸ deferred
   (generated sample, bounded decoding, additive sample feedback, explicit clipping warning)
 - ✅ Image: upload → grayscale / blur / invert → input + final display + PNG export
   (generated sample, bounded PNG/JPEG decode to RGB)
+- ✅ Image feedback example: 64×64 generated input → 32-pass direct blur loop → PNG,
+  with in-memory iteration review and adjustable browser playback; MP4 deferred
 - ✅ Electronic components: symbolic nodes (no simulation)
 - ✅ Gallery execution and decoded-input caching; runtime payloads separate from graph JSON;
   graph/input changes invalidate displayed results; consumer/media errors shown explicitly

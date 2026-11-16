@@ -16,6 +16,7 @@ class EditorAdapter:
         self.registry = registry
         self.graph = graph
         self.selected_id: str | None = None
+        self.selected_edge_id: str | None = None
         self.feedback_edge_ids: frozenset[str] = frozenset()
         self.revision = 0
         self.notice: tuple[str, str] | None = None
@@ -29,6 +30,7 @@ class EditorAdapter:
         graph.validate_feedback()
 
     def _to_flow(self) -> StreamlitFlowState:
+        edge_ids = {edge_id: canvas_id for canvas_id, edge_id in self._canvas_edge_ids().items()}
         nodes: list[StreamlitFlowNode] = []
         for node in self.graph.nodes:
             spec = self.registry.resolve(node.type_id).spec
@@ -45,25 +47,42 @@ class EditorAdapter:
                     selectable=True,
                     selected=node.node_id == self.selected_id,
                     connectable=bool(spec.inputs or spec.outputs),
-                    deletable=True,
-                    style={},
+                    deletable=False,
+                    style={"border": "2px solid red"} if node.node_id == self.selected_id else {},
                 )
             )
         edges = [
             StreamlitFlowEdge(
-                edge.edge_id,
+                edge_ids[edge.edge_id],
                 edge.src_node,
                 edge.dst_node,
                 label=f"{edge.src_port} -> {edge.dst_port}",
                 animated=edge.edge_id in self.feedback_edge_ids,
-                deletable=True,
+                selected=edge.edge_id == self.selected_edge_id,
+                deletable=False,
+                style={"stroke": "red", "strokeWidth": 3}
+                if edge.edge_id == self.selected_edge_id
+                else {},
             )
             for edge in self.graph.edges
         ]
         state = StreamlitFlowState(nodes, edges)
         if self.selected_id is not None:
             state.selected_id = self.selected_id
+        elif self.selected_edge_id is not None:
+            state.selected_id = edge_ids[self.selected_edge_id]
         return state
+
+    def _canvas_edge_ids(self) -> dict[str, str]:
+        node_ids = {node.node_id for node in self.graph.nodes}
+        edge_ids = {edge.edge_id for edge in self.graph.edges}
+        prefix = "edge:"
+        while any(
+            node_id.startswith(prefix) and node_id[len(prefix) :] in edge_ids
+            for node_id in node_ids
+        ):
+            prefix = "edge:" + prefix
+        return {prefix + edge.edge_id: edge.edge_id for edge in self.graph.edges}
 
     def refresh_canvas(self) -> None:
         self.revision += 1
@@ -78,9 +97,10 @@ class EditorAdapter:
         candidate = Graph(nodes=nodes, edges=edges, policy=policy or self.graph.policy)
         self._validate(candidate)
         self.graph = candidate
-        existing = {node.node_id for node in nodes} | {edge.edge_id for edge in edges}
-        if self.selected_id not in existing:
+        if self.selected_id not in {node.node_id for node in nodes}:
             self.selected_id = None
+        if self.selected_edge_id not in {edge.edge_id for edge in edges}:
+            self.selected_edge_id = None
         self.feedback_edge_ids &= frozenset(edge.edge_id for edge in edges)
         self.refresh_canvas()
 
@@ -100,6 +120,7 @@ class EditorAdapter:
         if node_id is not None and node_id not in {node.node_id for node in self.graph.nodes}:
             raise ValueError(f"Unknown node: {node_id}")
         self.selected_id = node_id
+        self.selected_edge_id = None
         self.refresh_canvas()
 
     def remove_node(self, node_id: str) -> None:
@@ -176,6 +197,7 @@ class EditorAdapter:
             graph.unroll(feedback_edge_ids=feedback_edge_ids)
         self.graph = graph
         self.selected_id = None
+        self.selected_edge_id = None
         self.feedback_edge_ids = feedback_edge_ids
         self.notice = None
         self.refresh_canvas()
@@ -190,8 +212,13 @@ class EditorAdapter:
             )
             for node in state.nodes
         )
-        existing_edges = {edge.edge_id: edge for edge in self.graph.edges}
+        edges_by_id = {edge.edge_id: edge for edge in self.graph.edges}
+        existing_edges = {
+            canvas_id: edges_by_id[edge_id]
+            for canvas_id, edge_id in self._canvas_edge_ids().items()
+        }
         edges: list[Edge] = []
+        added_edge_ids: set[str] = set()
         for edge in state.edges:
             if edge.id in existing_edges:
                 original = existing_edges[edge.id]
@@ -214,6 +241,7 @@ class EditorAdapter:
                         dst_port=target.inputs[0].name,
                     )
                 )
+                added_edge_ids.add(edge.id)
         candidate = Graph(nodes=nodes, edges=tuple(edges), policy=self.graph.policy)
         self._validate(candidate)
         structure_changed = candidate.edges != self.graph.edges or (
@@ -224,12 +252,23 @@ class EditorAdapter:
             self.notice = None
         self.graph = candidate
         node_ids = {node.node_id for node in nodes}
+        edge_ids = {edge.edge_id for edge in edges}
+        previous_selection = (self.selected_id, self.selected_edge_id)
         # Drag-stop and pane-click both return selectedId=None in this component.
-        if state.selected_id in node_ids:
-            self.selected_id = state.selected_id
-        elif self.selected_id not in node_ids:
+        if state.selected_id not in added_edge_ids:
+            if state.selected_id in node_ids:
+                self.selected_id = state.selected_id
+                self.selected_edge_id = None
+            elif state.selected_id in existing_edges:
+                self.selected_id = None
+                self.selected_edge_id = existing_edges[state.selected_id].edge_id
+        if self.selected_id not in node_ids:
             self.selected_id = None
+        if self.selected_edge_id not in edge_ids:
+            self.selected_edge_id = None
         self.feedback_edge_ids &= frozenset(edge.edge_id for edge in edges)
         self.flow_state = state
         if structure_changed:
             self.refresh_canvas()
+        elif previous_selection != (self.selected_id, self.selected_edge_id):
+            self.flow_state = self._to_flow()

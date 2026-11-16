@@ -27,6 +27,53 @@ def test_canvas_round_trip_preserves_named_ports_parameters_and_positions() -> N
     assert editor.node("stage").position == Position(x=180, y=260)
 
 
+def test_canvas_selection_highlights_one_item_and_deletion_clears_selection() -> None:
+    editor = EditorAdapter(demo_graph(), demo_registry())
+    state = deepcopy(editor.flow_state)
+    state.selected_id = "stage"
+    editor.accept_canvas(state)
+    assert editor.selected_id == "stage"
+    assert editor.flow_state.nodes[1].style["border"] == "2px solid red"
+
+    state = deepcopy(editor.flow_state)
+    state.selected_id = state.edges[0].id
+    editor.accept_canvas(state)
+    assert editor.selected_id is None
+    assert editor.selected_edge_id == "in-stage"
+    assert editor.flow_state.edges[0].style["stroke"] == "red"
+    assert "border" not in editor.flow_state.nodes[1].style
+    assert not editor.flow_state.nodes[1].deletable
+    assert not editor.flow_state.edges[0].deletable
+    assert editor.graph == demo_graph()
+
+    state = StreamlitFlowState(deepcopy(editor.flow_state.nodes), deepcopy(editor.flow_state.edges))
+    editor.accept_canvas(state)
+    assert editor.selected_edge_id == "in-stage"
+
+    editor.disconnect("in-stage")
+    assert editor.selected_edge_id is None
+    assert len(editor.graph.edges) == 1
+
+
+def test_canvas_distinguishes_node_and_edge_with_the_same_id() -> None:
+    graph = demo_graph()
+    edge = graph.edges[0].model_copy(update={"edge_id": "stage"})
+    editor = EditorAdapter(Graph(nodes=graph.nodes, edges=(edge, graph.edges[1])), demo_registry())
+    state = deepcopy(editor.flow_state)
+    assert state.edges[0].id != "stage"
+    state.selected_id = state.edges[0].id
+    editor.accept_canvas(state)
+    assert editor.selected_edge_id == "stage"
+    assert editor.selected_id is None
+    assert editor.graph.edges[0] == edge
+
+    state = deepcopy(editor.flow_state)
+    state.selected_id = "stage"
+    editor.accept_canvas(state)
+    assert editor.selected_id == "stage"
+    assert editor.selected_edge_id is None
+
+
 def test_palette_parameters_movement_and_delete_use_the_core_graph() -> None:
     editor = EditorAdapter(demo_graph(), demo_registry())
     editor.add_node("logic.constant", {"value": False})
@@ -53,6 +100,38 @@ def test_rejected_parameters_and_connections_leave_graph_unchanged() -> None:
     with pytest.raises(ValueError, match="maximum is 1"):
         editor.connect("stage", "value", "stage", "value")
     assert editor.graph == original
+
+
+def test_configured_connection_limit_and_loopback_save_round_trip() -> None:
+    from igomgo_nodes.storage import BrowserFileStore
+
+    editor = EditorAdapter(
+        Graph(
+            nodes=(
+                NodeInstance(node_id="source", type_id="logic.constant"),
+                NodeInstance(node_id="stage", type_id="logic.feedback_not"),
+            ),
+            policy=GraphPolicy(
+                allow_feedback=True, loop=LoopPolicy(max_iterations=3, timeout_seconds=10)
+            ),
+        ),
+        demo_registry(),
+    )
+    editor.connect("source", "value", "stage", "value")
+    editor.connect("stage", "value", "stage", "value")
+    loop = editor.graph.edges[-1].edge_id
+    editor.set_feedback_edges(frozenset({loop}))
+    editor.update_params("stage", {"max_incoming": 2, "graph_loopback": "add"})
+    before = editor.graph
+    with pytest.raises(ValueError, match="2 incoming connections, maximum is 1"):
+        editor.update_params("stage", {"max_incoming": 1})
+    assert editor.graph == before
+    store = BrowserFileStore()
+    loaded = store.deserialize(
+        store.serialize(editor.graph, editor.feedback_edge_ids), editor.registry
+    )
+    assert loaded.graph == editor.graph
+    assert loaded.feedback_edge_ids == (loop,)
 
 
 def test_editing_allows_incomplete_nodes_but_not_invalid_existing_edges() -> None:

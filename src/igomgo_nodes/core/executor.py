@@ -75,6 +75,7 @@ def _process(
     nodes = {node.node_id: node for node in plan.graph.nodes}
     dependencies: dict[str, set[str]] = {node_id: set() for node_id in nodes}
     incoming: dict[str, list[Edge]] = {node_id: [] for node_id in nodes}
+    direct_feedback: dict[str, dict[str, set[str]]] = {}
     consumers: dict[str, int] = {node_id: 0 for node_id in nodes}
     groups: dict[tuple[int, int], list[str]] = {}
     for node_id, step in plan.steps.items():
@@ -83,11 +84,19 @@ def _process(
         dependencies[edge.dst_node].add(edge.src_node)
         incoming[edge.dst_node].append(edge)
         consumers[edge.src_node] += 1
+        source, target = plan.steps[edge.src_node], plan.steps[edge.dst_node]
+        if source.original_node_id == target.original_node_id and (
+            source.iteration + 1 == target.iteration
+        ):
+            direct_feedback.setdefault(target.original_node_id, {}).setdefault(
+                edge.dst_port, set()
+            ).add(edge.edge_id)
     sorter = TopologicalSorter(dependencies)
     sorter.prepare()
     ready: list[tuple[int, int, str]] = []
     values: dict[str, dict[str, object]] = {}
     completed: dict[tuple[int, int], dict[str, dict[str, object]]] = {}
+    original_inputs: dict[tuple[str, str], object] = {}
     while sorter.is_active():
         for node_id in sorter.get_ready():
             step = plan.steps[node_id]
@@ -97,8 +106,14 @@ def _process(
         step = plan.steps[node_id]
         node_type = registry.resolve(definition.type_id)
         gathered: dict[str, list[object]] = {port.name: [] for port in node_type.spec.inputs}
+        direct_values: dict[str, object] = {}
         for edge in incoming[node_id]:
-            gathered[edge.dst_port].append(deepcopy(values[edge.src_node][edge.src_port]))
+            value = deepcopy(values[edge.src_node][edge.src_port])
+            gathered[edge.dst_port].append(value)
+            if edge.edge_id in direct_feedback.get(step.original_node_id, {}).get(
+                edge.dst_port, set()
+            ):
+                direct_values[edge.dst_port] = value
             consumers[edge.src_node] -= 1
             if consumers[edge.src_node] == 0:
                 del values[edge.src_node]
@@ -113,6 +128,26 @@ def _process(
         try:
             node = node_type(node_id, definition.params)
             node.context = RunContext(step.original_node_id, step.iteration, max_iterations)
+            mode = node_type.direct_loopback_mode(node.params)
+            ports = direct_feedback.get(step.original_node_id, {})
+            if mode == "add" and step.iteration == 1 and ports:
+                for port in ports:
+                    original_inputs[step.original_node_id, port] = deepcopy(inputs[port])
+                if len(pickle.dumps(original_inputs, protocol=pickle.HIGHEST_PROTOCOL)) > (
+                    MAX_CAPTURE_BYTES
+                ):
+                    raise ExecutionError("Direct loopback originals exceed the 16 MiB limit")
+            if mode is not None and step.iteration > 1:
+                for port, value in direct_values.items():
+                    if mode == "add":
+                        inputs[port] = node.combine_loopback(
+                            port, deepcopy(original_inputs[step.original_node_id, port]), value
+                        )
+                        if step.iteration == max_iterations:
+                            del original_inputs[step.original_node_id, port]
+                    else:
+                        spec = next(item for item in node_type.spec.inputs if item.name == port)
+                        inputs[port] = value if spec.max_connections == 1 else [value]
             outputs = node.process(inputs)
         except Exception as error:
             raise ExecutionError(f"Node {node_id}: {type(error).__name__}: {error}") from error

@@ -8,6 +8,14 @@ Ideas parked here are **out of scope** until promoted into [PROGRESS.md](./PROGR
   coordinates and directional touch buttons instead.
 - Custom Streamlit component (React Flow / Rete.js) with per-port handles and client-side
   rule enforcement
+- Edge rewiring gestures for a future custom canvas: double-click or double-tap a path and
+  release without dragging to delete it. Hold the second press and drag to detach the
+  destination while extending a new path from the original source to the pointer. Dropping
+  on an empty area or invalid destination deletes the original connection; report invalid
+  destinations to the user. Valid connections must still pass graph rules.
+- Delete-key removal of a selected node or connection: the current canvas does not
+  immediately report keyboard deletions to Streamlit. Until that is supported, use the
+  on-screen delete controls.
 - Sub-graphs / grouped nodes ("macro" nodes) with exposed ports
 - Undo/redo, copy/paste, multi-select, snap-to-grid, minimap, auto-layout
 - Comments/annotations on canvas; themes and icon packs
@@ -31,6 +39,8 @@ Ideas parked here are **out of scope** until promoted into [PROGRESS.md](./PROGR
 - Video frame chains; 3D/shader nodes
 - Consumer-defined mapping of spiral iterations to successive image/video frames,
   including AVI import/export (no video codec or frame acquisition in core)
+- Optional MP4 capture/export for the image-feedback preview, after validating feedback
+  and browser playback (no video encoding in the framework core).
 - Data-pipeline / ETL nodes; ML inference nodes
 - Sandboxed user-scripted code nodes
 

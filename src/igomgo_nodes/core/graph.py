@@ -67,7 +67,21 @@ class Graph(BaseModel):
         self, registry: NodeRegistry, *, require_minimums: bool = True
     ) -> None:
         """Check registered types, directional ports, types, and connection counts."""
-        specs = {node.node_id: registry.resolve(node.type_id).spec for node in self.nodes}
+        node_types = {node.node_id: registry.resolve(node.type_id) for node in self.nodes}
+        specs = {node_id: node_type.spec for node_id, node_type in node_types.items()}
+        limits: dict[str, int | None] = {}
+        loopback_modes: dict[str, str | None] = {}
+        for node in self.nodes:
+            node_type = node_types[node.node_id]
+            params = node_type.validate_params(node.params)
+            limit = node_type.input_connection_limit(params)
+            if limit is not None and (type(limit) is not int or limit < 0):
+                raise ValueError(f"Node {node.node_id}: input connection limit must be nonnegative")
+            limits[node.node_id] = limit
+            mode = node_type.direct_loopback_mode(params)
+            if mode not in (None, "replace", "add"):
+                raise ValueError(f"Node {node.node_id}: invalid direct loopback mode {mode!r}")
+            loopback_modes[node.node_id] = mode
         inputs = {
             node_id: {port.name: port for port in spec.inputs} for node_id, spec in specs.items()
         }
@@ -76,6 +90,8 @@ class Graph(BaseModel):
         }
         incoming: Counter[tuple[str, str]] = Counter()
         outgoing: Counter[tuple[str, str]] = Counter()
+        incoming_nodes: Counter[str] = Counter()
+        direct_loopbacks: Counter[tuple[str, str]] = Counter()
         for edge in self.edges:
             source = outputs[edge.src_node].get(edge.src_port)
             target = inputs[edge.dst_node].get(edge.dst_port)
@@ -93,6 +109,19 @@ class Graph(BaseModel):
                 )
             outgoing[edge.src_node, edge.src_port] += 1
             incoming[edge.dst_node, edge.dst_port] += 1
+            incoming_nodes[edge.dst_node] += 1
+            if edge.src_node == edge.dst_node and loopback_modes[edge.dst_node] is not None:
+                direct_loopbacks[edge.dst_node, edge.dst_port] += 1
+
+        for node_id, limit in limits.items():
+            if limit is not None and incoming_nodes[node_id] > limit:
+                raise ValueError(
+                    f"Node {node_id}: {incoming_nodes[node_id]} incoming connections, "
+                    f"maximum is {limit}"
+                )
+        for (node_id, port), count in direct_loopbacks.items():
+            if count > 1:
+                raise ValueError(f"Node {node_id}.{port}: only one direct loopback is supported")
 
         for direction, ports_by_node, counts in (
             ("input", inputs, incoming),

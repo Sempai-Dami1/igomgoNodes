@@ -74,6 +74,9 @@ Graph data is also implemented:
   node limits. `None` means unlimited; zero means none. Specs are immutable, with port tuples.
 - `max_inputs`/`max_outputs` count declared ports, not connected edges; `NodeSpec` enforces
   these limits. Connection counts are checked separately per named port and node instance.
+- Consumers can additionally implement `input_connection_limit(params)` to limit the total
+  incoming edges across all ports on an instance. A direct self-loop counts as an incoming edge.
+  The consumer's parameter model defines and validates any adjustable bounds.
 - Consumers subclass `BaseNode`, declare a class-level `spec`, and implement
   `process(inputs: Mapping[str, object]) -> dict[str, object]`.
   Each instance has `node_id` and independently copied, JSON-compatible `params`.
@@ -83,8 +86,13 @@ Graph data is also implemented:
 - `NodeRegistry.register(MyNode)` accepts concrete classes with valid specs.
   `resolve(type_id)` returns only an explicitly registered class; duplicate and unknown
   identifiers raise errors. Registry state belongs to the consumer, not a global singleton.
-- Execution context is implemented as `self.context`; parameter UI schemas and rendering
-  hooks below remain proposals for later milestones. The core has no rendering dependency.
+- Execution context is implemented as `self.context`. The core has no rendering dependency.
+- A consumer can opt into per-node direct self-loop behavior with
+  `direct_loopback_mode(params)`: `replace` feeds the previous output into the target input;
+  `add` delegates combining the first-pass input with that output to `combine_loopback`.
+  The latter returns the input in the port's normal scalar/list shape. Other inputs still
+  follow graph edges normally. Existing nodes that do not opt in retain the original behavior.
+  Drawn self-loops still require graph-wide permission and selection as feedback boundaries.
 
 ### JSON interchange and versioning
 

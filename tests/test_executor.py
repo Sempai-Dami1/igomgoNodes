@@ -1,9 +1,14 @@
 import multiprocessing
+import pickle
 import time
 from collections.abc import Mapping
+from typing import Literal
+from unittest.mock import MagicMock
 
 import pytest
+from pydantic import JsonValue
 
+from examples.editor_demo import FeedbackNot, demo_registry
 from igomgo_nodes.core import (
     BaseNode,
     Edge,
@@ -16,7 +21,9 @@ from igomgo_nodes.core import (
     NodeRegistry,
     NodeSpec,
     PortSpec,
+    executor,
 )
+from igomgo_nodes.core.unroll import plan_graph
 
 
 class Constant(BaseNode):
@@ -43,6 +50,28 @@ class Add(BaseNode):
         assert isinstance(values, list)
         assert all(isinstance(value, int) for value in values)
         return {"out": sum(value for value in values if isinstance(value, int)) + 1}
+
+
+class LoopbackBaseline(Add):
+    spec = Add.spec.model_copy(update={"type_id": "test.loopback_baseline"})
+
+    @classmethod
+    def direct_loopback_mode(cls, params: Mapping[str, JsonValue]) -> Literal["add"]:
+        return "add"
+
+    def combine_loopback(self, port: str, original: object, feedback: object) -> object:
+        return original
+
+    def process(self, inputs: Mapping[str, object]) -> dict[str, object]:
+        return {"out": 1}
+
+
+class MissingCombiner(Add):
+    spec = Add.spec.model_copy(update={"type_id": "test.missing_combiner"})
+
+    @classmethod
+    def direct_loopback_mode(cls, params: Mapping[str, JsonValue]) -> Literal["add"]:
+        return "add"
 
 
 class Scalar(BaseNode):
@@ -198,6 +227,129 @@ def test_feedback_is_additive_in_consumer_with_complete_pass_snapshots() -> None
     assert [snapshot.iteration for snapshot in result.snapshots] == [2, 4]
     assert result.snapshots[0].outputs == {"add": {"out": 7}, "relay": {"out": 7}}
     assert result.snapshots[1].outputs == {"add": {"out": 9}, "relay": {"out": 9}}
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [("replace", [False, True, False, True]), ("add", [False, False, False, False])],
+)
+def test_direct_loopback_uses_previous_output_and_original_input(
+    mode: str, expected: list[bool]
+) -> None:
+    graph = Graph(
+        nodes=(
+            NodeInstance(node_id="source", type_id="logic.constant", params={"value": True}),
+            NodeInstance(
+                node_id="stage",
+                type_id="logic.feedback_not",
+                params={"graph_loopback": mode, "max_incoming": 2},
+            ),
+        ),
+        edges=(
+            Edge(
+                edge_id="entry",
+                src_node="source",
+                src_port="value",
+                dst_node="stage",
+                dst_port="value",
+            ),
+            Edge(
+                edge_id="loop",
+                src_node="stage",
+                src_port="value",
+                dst_node="stage",
+                dst_port="value",
+            ),
+        ),
+        policy=GraphPolicy(
+            allow_feedback=True, loop=LoopPolicy(max_iterations=4, timeout_seconds=10)
+        ),
+    )
+    result = Executor().run(graph, demo_registry(), feedback_edge_ids=frozenset({"loop"}))
+    assert not result.timed_out
+    assert [snapshot.outputs["stage"]["value"] for snapshot in result.snapshots] == expected
+
+
+@pytest.mark.parametrize(
+    ("mode", "iterations", "expected"),
+    [("replace", 1, True), ("add", 1, False), ("replace", 2, False), ("add", 2, False)],
+)
+def test_internal_loopback_is_consumer_owned_and_bounded(
+    mode: str, iterations: int, expected: bool
+) -> None:
+    node = FeedbackNot(
+        "stage",
+        {"internal_loopback": mode, "internal_iterations": iterations},
+    )
+    assert node.process({"value": [True]}) == {"value": expected}
+    with pytest.raises(ValueError):
+        FeedbackNot("stage", {"internal_iterations": 9})
+
+
+def test_additive_direct_loopback_originals_have_a_strict_size_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    registry = _registry()
+    registry.register(LoopbackBaseline)
+    original = "x" * 256
+    graph = Graph(
+        nodes=(
+            NodeInstance(node_id="source", type_id="test.constant", params={"value": original}),
+            NodeInstance(node_id="stage", type_id="test.loopback_baseline"),
+        ),
+        edges=(_edge("entry", "source", "stage"), _edge("loop", "stage", "stage")),
+        policy=GraphPolicy(
+            allow_feedback=True, loop=LoopPolicy(max_iterations=2, timeout_seconds=10)
+        ),
+    )
+    plan = plan_graph(graph, None, frozenset({"loop"}))
+    size = len(pickle.dumps({("stage", "in"): [original]}, protocol=pickle.HIGHEST_PROTOCOL))
+    monkeypatch.setattr(executor, "_send", lambda connection, message: None)
+    monkeypatch.setattr(executor, "MAX_CAPTURE_BYTES", size)
+    executor._process(MagicMock(), plan, registry, 1, 2, {})
+    monkeypatch.setattr(executor, "MAX_CAPTURE_BYTES", size - 1)
+    with pytest.raises(ExecutionError, match="Direct loopback originals exceed"):
+        executor._process(MagicMock(), plan, registry, 1, 2, {})
+
+
+def test_additive_direct_loopback_requires_a_consumer_combiner() -> None:
+    registry = _registry()
+    registry.register(MissingCombiner)
+    graph = Graph(
+        nodes=(NodeInstance(node_id="stage", type_id="test.missing_combiner"),),
+        edges=(_edge("loop", "stage", "stage"),),
+        policy=GraphPolicy(
+            allow_feedback=True, loop=LoopPolicy(max_iterations=2, timeout_seconds=10)
+        ),
+    )
+    with pytest.raises(ExecutionError, match="does not implement additive direct loopback"):
+        Executor().run(graph, registry, feedback_edge_ids=frozenset({"loop"}))
+
+
+def test_direct_loopback_single_pass_and_disabled_policy() -> None:
+    graph = Graph(
+        nodes=(NodeInstance(node_id="stage", type_id="logic.feedback_not"),),
+        edges=(
+            Edge(
+                edge_id="loop",
+                src_node="stage",
+                src_port="value",
+                dst_node="stage",
+                dst_port="value",
+            ),
+        ),
+        policy=GraphPolicy(
+            allow_feedback=True, loop=LoopPolicy(max_iterations=1, timeout_seconds=10)
+        ),
+    )
+    result = Executor().run(graph, demo_registry(), feedback_edge_ids=frozenset({"loop"}))
+    assert [snapshot.outputs["stage"]["value"] for snapshot in result.snapshots] == [True]
+    with pytest.raises(ValueError, match="feedback is disabled"):
+        Executor().run(
+            Graph(nodes=graph.nodes, edges=graph.edges),
+            demo_registry(),
+            feedback_edge_ids=frozenset({"loop"}),
+        )
 
 
 def test_context_and_missing_first_feedback_value() -> None:

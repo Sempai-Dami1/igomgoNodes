@@ -178,6 +178,9 @@ def _inspector(editor: EditorAdapter, key: str) -> None:
     st.caption(f"Type: {node.type_id} | ID: {node.node_id}")
     st.write("Inputs", [port.model_dump() for port in node_type.spec.inputs])
     st.write("Outputs", [port.model_dump() for port in node_type.spec.outputs])
+    limit = node_type.input_connection_limit(node_type.validate_params(node.params))
+    if limit is not None:
+        st.caption(f"Maximum incoming connections: {limit} (including direct loopbacks)")
     with st.form(f"{key}_params_{node.node_id}_{editor.revision}"):
         fields, json_fields = _parameter_fields(
             node_type, node.params, f"{key}_param_{node.node_id}_{editor.revision}"
@@ -188,6 +191,33 @@ def _inspector(editor: EditorAdapter, key: str) -> None:
                 lambda: editor.update_params(node.node_id, _parse_parameters(fields, json_fields)),
                 "Parameters updated.",
             )
+    direct_edges = [
+        edge
+        for edge in editor.graph.edges
+        if edge.src_node == node.node_id and edge.dst_node == node.node_id
+    ]
+    if direct_edges and editor.graph.policy.allow_feedback:
+        edge_ids = {edge.edge_id for edge in direct_edges}
+        with st.form(f"{key}_direct_loopbacks_{node.node_id}_{editor.revision}"):
+            chosen = st.multiselect(
+                "Active direct loopbacks",
+                [edge.edge_id for edge in direct_edges],
+                default=sorted(editor.feedback_edge_ids & edge_ids),
+                format_func=lambda edge_id: next(
+                    f"{edge.src_port} -> {edge.dst_port} ({edge.edge_id[:8]})"
+                    for edge in direct_edges
+                    if edge.edge_id == edge_id
+                ),
+                help="A selected connection feeds the next graph iteration.",
+            )
+            if st.form_submit_button("Apply direct loopbacks"):
+                _action(
+                    editor,
+                    lambda: editor.set_feedback_edges(
+                        (editor.feedback_edge_ids - edge_ids) | frozenset(chosen)
+                    ),
+                    "Direct loopbacks validated.",
+                )
     st.caption("Touch: select a node, then use coordinates or the move buttons.")
     with st.form(
         f"{key}_move_{node.node_id}_{editor.revision}_{node.position.x}_{node.position.y}"
@@ -263,6 +293,15 @@ def _connections(editor: EditorAdapter, key: str) -> None:
             f"{node_label(edge.dst_node)}.{edge.dst_port}"
         )
 
+    selected_edge_id = editor.selected_edge_id
+    if selected_edge_id is not None:
+        st.caption(f"Selected connection: {edge_label(selected_edge_id)}")
+        if st.button("Delete selected connection", key=f"{key}_delete_edge"):
+            _action(
+                editor,
+                lambda: editor.disconnect(selected_edge_id),
+                "Connection removed.",
+            )
     edge_id = st.selectbox(
         "Connection", tuple(edges), format_func=edge_label, key=f"{key}_edge_{editor.revision}"
     )
@@ -290,7 +329,9 @@ def render_editor(editor: EditorAdapter, *, key: str = "editor") -> None:
         _palette(editor, key)
         _policy(editor, key)
     notice = st.empty()
+    st.caption("Select a node or connection, then use its on-screen delete button.")
     revision = editor.revision
+    selection = (editor.selected_id, editor.selected_edge_id)
     state = streamlit_flow(
         f"{key}_canvas_{editor.revision}",
         editor.flow_state,
@@ -306,7 +347,7 @@ def render_editor(editor: EditorAdapter, *, key: str = "editor") -> None:
         editor.notice = ("error", str(error))
         editor.refresh_canvas()
         st.rerun()
-    if editor.revision != revision:
+    if editor.revision != revision or selection != (editor.selected_id, editor.selected_edge_id):
         st.rerun()
     if editor.notice is not None:
         level, message = editor.notice

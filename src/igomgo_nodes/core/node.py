@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from copy import deepcopy
-from typing import ClassVar, Self
+from typing import ClassVar, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter, model_validator
 
@@ -56,6 +56,22 @@ class BaseNode(ABC):
             validated = cls.parameter_model.model_validate(dict(params))
             return _PARAMETERS.validate_python(validated.model_dump(mode="json"))
         return deepcopy(_PARAMETERS.validate_python(dict(params)))
+
+    @classmethod
+    def input_connection_limit(cls, params: Mapping[str, JsonValue]) -> int | None:
+        """Return the instance's total incoming-edge limit, or None for no extra limit."""
+        return None
+
+    @classmethod
+    def direct_loopback_mode(
+        cls, params: Mapping[str, JsonValue]
+    ) -> Literal["replace", "add"] | None:
+        """Opt into direct self-loop input handling; None keeps the original behavior."""
+        return None
+
+    def combine_loopback(self, port: str, original: object, feedback: object) -> object:
+        """Combine a first-pass input and a feedback value using consumer-defined semantics."""
+        raise NotImplementedError("This node does not implement additive direct loopback")
 
     @abstractmethod
     def process(self, inputs: Mapping[str, object]) -> dict[str, object]:

@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import numpy as np
 import pytest
 from streamlit.testing.v1 import AppTest
@@ -67,6 +69,21 @@ def test_ui_displays_rejected_connection_and_missing_required_input() -> None:
     assert any("minimum is 1" in error.value for error in at.error)
 
 
+def test_ui_deletes_the_canvas_selected_connection() -> None:
+    at = AppTest.from_file("../app.py", default_timeout=30).run()
+    editor = at.session_state["editor"]
+    state = deepcopy(editor.flow_state)
+    state.selected_id = state.edges[1].id
+    editor.accept_canvas(state)
+    at.run()
+    assert not at.exception
+    assert any("Selected connection:" in caption.value for caption in at.caption)
+    _button(at, "Delete selected connection").click().run()
+    assert not at.exception
+    assert {edge.edge_id for edge in editor.graph.edges} == {"in-stage"}
+    assert editor.selected_edge_id is None
+
+
 def test_ui_named_ports_support_multi_input_nodes_and_policy() -> None:
     at = AppTest.from_file("../app.py", default_timeout=30).run()
     _selectbox(at, "Node type").select("logic.and").run()
@@ -82,6 +99,36 @@ def test_ui_named_ports_support_multi_input_nodes_and_policy() -> None:
     _button(at, "Apply policy").click().run()
     assert not at.exception
     assert at.session_state["editor"].graph.policy.loop.max_iterations == 3
+
+
+def test_node_settings_activate_a_drawn_direct_loopback() -> None:
+    at = AppTest.from_file("../app.py", default_timeout=30).run()
+    _selectbox(at, "Node type").select("logic.feedback_not").run()
+    _button(at, "Add node").click().run()
+    editor = at.session_state["editor"]
+    node_id = editor.selected_id
+    next(checkbox for checkbox in at.checkbox if checkbox.label == "Allow graph feedback").check()
+    _button(at, "Apply policy").click().run()
+    editor.connect("in", "value", node_id, "value")
+    editor.connect(node_id, "value", node_id, "value")
+    loop = editor.graph.edges[-1].edge_id
+    at.run()
+    next(widget for widget in at.multiselect if widget.label == "Active direct loopbacks").select(
+        loop
+    )
+    _button(at, "Apply direct loopbacks").click().run()
+    assert not at.exception
+    assert editor.feedback_edge_ids == frozenset({loop})
+    mode = next(
+        widget
+        for widget in at.selectbox
+        if widget.label == "Graph Loopback" and widget.key is not None and "_param_" in widget.key
+    )
+    mode.select("add")
+    _button(at, "Apply parameters").click().run()
+    assert not at.exception
+    assert editor.node(node_id).params["graph_loopback"] == "add"
+    assert any("Maximum incoming connections: 2" in caption.value for caption in at.caption)
 
 
 @pytest.mark.parametrize(
@@ -123,6 +170,21 @@ def test_gallery_surfaces_consumer_errors_without_a_completed_result() -> None:
     assert any("half the sample rate" in message.value for message in at.error)
     assert len(at.get("download_button")) == 1
     assert not any(message.value == "Run complete." for message in at.success)
+
+
+def test_image_feedback_gallery_starts_configured_and_runs() -> None:
+    at = AppTest.from_file("../app.py", default_timeout=30).run()
+    _selectbox(at, "Example").select("Image feedback").run()
+    editor = at.session_state["editor_image_feedback"]
+    assert editor.feedback_edge_ids == frozenset({image_poc.FEEDBACK_EDGE_ID})
+    assert editor.graph.policy.loop.max_iterations == 32
+    _button(at, "Run graph").click().run()
+    assert not at.exception
+    assert not at.error
+    assert any(message.value == "Run complete." for message in at.success)
+    assert any(button.label == "Download output PNG" for button in at.download_button)
+    assert len(at.dataframe) == 1
+    assert len(at.dataframe[0].value) == 32
 
 
 @pytest.mark.parametrize("name", ["Audio", "Image"])

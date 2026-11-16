@@ -113,6 +113,16 @@ The editor and node construction validate these values. Keep large payloads, dec
 and runtime-only values out of `NodeInstance.params`; pass runtime values through
 `Executor.run(..., inputs={node_id: {port_name: value}})` instead.
 
+For an adjustable total incoming-connection limit, add a bounded integer to the parameter
+model and override `input_connection_limit(cls, params)` to return its validated value.
+This limit counts edges across **all** input ports, including direct self-loops. Each port's
+own `max_connections` also applies; `NodeSpec.max_inputs` instead limits the number of
+declared ports. Changing a limit below the current number of edges is rejected.
+The inspector builds the configuration fields from the consumer's Pydantic schema.
+See `FeedbackParams` and `FeedbackNot` in [editor_demo.py](../examples/editor_demo.py)
+for a working example with a multi-connection input. Limit and mode hooks receive validated
+parameters and run during graph validation, so keep them deterministic and inexpensive.
+
 ## Feedback
 
 Cycles are disabled by default. To enable them, set one graph-level `GraphPolicy` with a
@@ -141,6 +151,35 @@ the first pass and the last completed pass supplies downstream outputs. The exec
 enforces iteration, timeout, expansion, snapshot, and transfer limits. Audio sample-level
 feedback mixing, if used, belongs in the consumer node and is separate from graph passes.
 
+### Direct node loopbacks
+
+Consumers can expose a `replace`/`add` parameter and override
+`direct_loopback_mode(cls, params)` to return that setting. For a selected self-loop,
+`replace` delivers the preceding pass's output as the next input. `add` calls
+`combine_loopback(self, port, original, feedback)`: `original` is the input as delivered
+on the first pass, and `feedback` is the preceding output. Return the complete new input
+in the port's usual scalar or list shape; the consumer defines how its data combines.
+The first-pass input is retained up to a total of 16 MiB for additive direct loopbacks.
+The selected loopback replaces other deliveries to that same port on later passes;
+other ports retain normal graph behavior. Only one direct loopback per input port is
+supported for nodes opting into these modes. Nodes that do not opt in retain their
+existing graph-feedback behavior, including multi-node loops.
+
+In the editor, enable graph feedback, draw or connect the self-loop, select the node,
+then choose it under **Active direct loopbacks**. Configure its mode in the consumer's
+parameters. The loop is still subject to the graph policy and must be part of a complete
+set of feedback boundaries that breaks every cycle. To remove an active loopback,
+disconnect its line. For a sample, add **Configurable feedback NOT** from the Logic
+palette: its bounded input count and graph/internal modes are independently configurable.
+Its additive operation is Boolean OR; audio or image consumers must define their own.
+Internal iterations are consumer processing, separate from graph passes, and must have
+their own finite bounds; the executor's timeout still applies.
+
+The **Image feedback** gallery example demonstrates a replacement self-loop around a
+consumer blur node. It runs 32 graph passes, previews the captured results in the browser,
+and exports the last output as PNG. It keeps frames in memory rather than writing video
+files and reduces input images to fit within 64×64 pixels.
+
 ## Use the Streamlit editor and graph files
 
 Install the `ui` extra and register the same consumer classes used by the executor:
@@ -160,6 +199,9 @@ selections. For a local application, `LocalJsonStore` writes validated `.igomgo.
 files to a configured directory. Community Cloud has temporary shared server storage, so
 use browser download/upload for a user's own files; do not treat the server disk as private
 per-user storage.
+
+In the editor, click or tap a node or connection to highlight it red, then use its
+on-screen delete control. Keyboard Delete is not supported by the current canvas.
 
 For more API details and the ready-made examples, see the [README](../README.md) and
 [concept](../CONCEPT.md). For security requirements, including graph-file limits and

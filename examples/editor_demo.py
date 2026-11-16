@@ -1,8 +1,9 @@
 """Tiny logic consumer used by the editor demo; no domain logic belongs in core."""
 
 from collections.abc import Mapping
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from igomgo_nodes.core import (
     BaseNode,
@@ -87,9 +88,56 @@ class Xor(And):
         return {"value": bool(inputs["a"]) != bool(inputs["b"])}
 
 
+class FeedbackParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    max_incoming: int = Field(default=2, ge=1, le=8, strict=True)
+    graph_loopback: Literal["replace", "add"] = "replace"
+    internal_loopback: Literal["replace", "add"] = "replace"
+    internal_iterations: int = Field(default=0, ge=0, le=8, strict=True)
+
+
+class FeedbackNot(BaseNode):
+    """Small consumer example: invert a Boolean fan-in, optionally feeding it back."""
+
+    spec = NodeSpec(
+        type_id="logic.feedback_not",
+        title="Configurable feedback NOT",
+        category="Logic",
+        inputs=(PortSpec(name="value", dtype="bool", max_connections=None),),
+        outputs=(PortSpec(name="value", dtype="bool", max_connections=None),),
+    )
+    parameter_model = FeedbackParams
+
+    @classmethod
+    def input_connection_limit(cls, params: Mapping[str, JsonValue]) -> int:
+        return FeedbackParams.model_validate(params).max_incoming
+
+    @classmethod
+    def direct_loopback_mode(cls, params: Mapping[str, JsonValue]) -> Literal["replace", "add"]:
+        return FeedbackParams.model_validate(params).graph_loopback
+
+    def combine_loopback(self, port: str, original: object, feedback: object) -> object:
+        if not isinstance(original, list) or not all(isinstance(value, bool) for value in original):
+            raise ValueError("Expected Boolean original inputs")
+        if not isinstance(feedback, bool):
+            raise ValueError("Expected Boolean feedback")
+        return [any(original) or feedback]
+
+    def process(self, inputs: Mapping[str, object]) -> dict[str, object]:
+        values = inputs["value"]
+        if not isinstance(values, list) or not all(isinstance(value, bool) for value in values):
+            raise ValueError("Expected Boolean inputs")
+        params = FeedbackParams.model_validate(self.params)
+        original = any(values)
+        output = not original
+        for _ in range(params.internal_iterations):
+            output = not (original or output if params.internal_loopback == "add" else output)
+        return {"value": output}
+
+
 def demo_registry() -> NodeRegistry:
     registry = NodeRegistry()
-    for node_type in (Constant, Not, And, Or, Xor, Display):
+    for node_type in (Constant, Not, And, Or, Xor, Display, FeedbackNot):
         registry.register(node_type)
     return registry
 

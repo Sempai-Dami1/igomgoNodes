@@ -60,6 +60,8 @@ Report vulnerabilities privately via GitHub Security Advisories on this reposito
   60 seconds). Snapshot schedules above 1,000 and result transfers/retention above
   16 MiB raise explicit errors. These do not constrain all consumer allocations:
   workers are resource-isolation helpers, not sandboxes for untrusted code.
+- First-pass inputs retained for additive direct loopbacks are capped at 16 MiB in total.
+  Consumer-defined internal feedback must also be finite and runs under the worker timeout.
 - Multiprocessing uses pickle only for locally registered, trusted classes and worker
   messages. Never accept pickled files, network messages, or class definitions from users.
   Uploaded graph files remain validated JSON with registry-only type resolution.

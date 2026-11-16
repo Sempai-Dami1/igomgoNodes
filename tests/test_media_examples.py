@@ -1,3 +1,4 @@
+import pickle
 from io import BytesIO
 
 import numpy as np
@@ -10,6 +11,7 @@ from examples import audio_poc, electronics_poc, image_poc
 from examples.editor_demo import demo_graph, demo_registry
 from examples.gallery import waveform
 from igomgo_nodes.core import Executor
+from igomgo_nodes.core.executor import MAX_CAPTURE_BYTES
 
 
 def test_audio_chain_runs_and_exports_matching_wav_shape() -> None:
@@ -93,6 +95,38 @@ def test_image_blur_changes_impulse_without_changing_shape() -> None:
     assert output.shape == pixels.shape
     assert 0 < output[4, 4, 0] < 255
     assert output[4, 3, 0] > 0
+
+
+def test_image_feedback_runs_32_successive_blurs_and_exports_final_png() -> None:
+    pixels = image_poc.feedback_image(image_poc.feedback_sample_png())
+    assert pixels.shape == (64, 64, 3)
+    graph, registry = image_poc.feedback_demo()
+    result = Executor().run(
+        graph,
+        registry,
+        inputs={"input": {"data": pixels}},
+        feedback_edge_ids=frozenset({image_poc.FEEDBACK_EDGE_ID}),
+    )
+    assert not result.timed_out
+    assert [snapshot.iteration for snapshot in result.snapshots] == list(range(1, 33))
+    expected = pixels
+    blur = image_poc.Blur("expected")
+    for snapshot in result.snapshots:
+        expected = blur.process({"data": expected})["data"]
+        np.testing.assert_array_equal(snapshot.outputs["blur"]["data"], expected)
+    final = result.outputs["output"]["data"]
+    assert isinstance(final, np.ndarray)
+    np.testing.assert_array_equal(final, expected)
+    assert np.std(final) < np.std(pixels)
+    np.testing.assert_array_equal(image_poc.decode_image(image_poc.encode_png(final)), final)
+    assert len(pickle.dumps(result, protocol=pickle.HIGHEST_PROTOCOL)) < MAX_CAPTURE_BYTES
+
+
+def test_feedback_image_limits_uploaded_dimensions_without_upscaling() -> None:
+    large = image_poc.encode_png(np.zeros((40, 128, 3), dtype=np.uint8))
+    small = image_poc.encode_png(np.zeros((4, 8, 3), dtype=np.uint8))
+    assert image_poc.feedback_image(large).shape == (20, 64, 3)
+    assert image_poc.feedback_image(small).shape == (4, 8, 3)
 
 
 def test_logic_and_symbolic_consumers_build_and_run() -> None:
