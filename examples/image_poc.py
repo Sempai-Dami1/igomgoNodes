@@ -119,6 +119,7 @@ class FeedbackBlur(Blur):
     spec = NodeSpec(
         type_id="image.feedback_blur",
         title="Feedback blur",
+        icon="feedback-blur",
         category="Image",
         inputs=(
             PortSpec(name="data", dtype="image", min_connections=1),
@@ -164,7 +165,7 @@ def feedback_demo() -> tuple[Graph, NodeRegistry]:
                 NodeInstance(
                     node_id="blur", type_id="image.feedback_blur", position=Position(x=220)
                 ),
-                NodeInstance(node_id="output", type_id="image.output", position=Position(x=440)),
+                NodeInstance(node_id="output", type_id="image.output", position=Position(x=540)),
             ),
             edges=(
                 Edge(

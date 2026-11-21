@@ -27,6 +27,72 @@ def test_canvas_round_trip_preserves_named_ports_parameters_and_positions() -> N
     assert editor.node("stage").position == Position(x=180, y=260)
 
 
+def test_feedback_blur_builtin_icon_is_rendered_without_trusting_arbitrary_icon_markup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from examples import image_poc
+
+    graph, registry = image_poc.feedback_demo()
+    editor = EditorAdapter(graph, registry)
+    blur = next(node for node in editor.flow_state.nodes if node.id == "blur")
+    assert blur.data["content"] == "Feedback blur"
+    assert blur.style["backgroundImage"].startswith('url("data:image/svg+xml,')
+    editor.select_node("blur")
+    blur = next(node for node in editor.flow_state.nodes if node.id == "blur")
+    assert blur.style["border"] == "2px solid red"
+    assert "backgroundImage" in blur.style
+
+    monkeypatch.setattr(
+        image_poc.FeedbackBlur,
+        "spec",
+        image_poc.FeedbackBlur.spec.model_copy(update={"icon": '<svg onload="alert(1)">'}),
+    )
+    editor.refresh_canvas()
+    blur = next(node for node in editor.flow_state.nodes if node.id == "blur")
+    assert "backgroundImage" not in blur.style
+    assert "&lt;svg" in blur.data["content"]
+
+
+def test_audio_feedback_icon_is_rendered_and_remains_visible_when_selected() -> None:
+    from examples import audio_poc, image_poc
+
+    graph, registry = audio_poc.feedback_demo()
+    editor = EditorAdapter(graph, registry)
+    echo = next(node for node in editor.flow_state.nodes if node.id == "echo")
+    assert echo.data["content"] == "Feedback echo"
+    icon = echo.style["backgroundImage"]
+    assert icon.startswith('url("data:image/svg+xml,')
+    image_graph, image_registry = image_poc.feedback_demo()
+    blur = next(
+        node
+        for node in EditorAdapter(image_graph, image_registry).flow_state.nodes
+        if node.id == "blur"
+    )
+    assert icon != blur.style["backgroundImage"]
+    editor.select_node("echo")
+    echo = next(node for node in editor.flow_state.nodes if node.id == "echo")
+    assert echo.style["backgroundImage"] == icon
+    assert echo.style["border"] == "2px solid red"
+
+
+@pytest.mark.parametrize("feedback", [False, True])
+def test_audio_wav_nodes_render_distinct_icons(feedback: bool) -> None:
+    from examples import audio_poc
+
+    graph, registry = audio_poc.feedback_demo() if feedback else audio_poc.demo()
+    editor = EditorAdapter(graph, registry)
+    nodes = {node.id: node for node in editor.flow_state.nodes}
+    icons = [nodes[node_id].style["backgroundImage"] for node_id in ("input", "output")]
+    assert all(icon.startswith('url("data:image/svg+xml,') for icon in icons)
+    assert icons[0] != icons[1]
+    assert nodes["input"].data["content"] == "WAV input"
+    assert nodes["output"].data["content"] == "WAV output"
+    editor.select_node("output")
+    selected = next(node for node in editor.flow_state.nodes if node.id == "output")
+    assert selected.style["backgroundImage"] == icons[1]
+    assert selected.style["border"] == "2px solid red"
+
+
 def test_canvas_selection_highlights_one_item_and_deletion_clears_selection() -> None:
     editor = EditorAdapter(demo_graph(), demo_registry())
     state = deepcopy(editor.flow_state)

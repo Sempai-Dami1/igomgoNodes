@@ -138,6 +138,8 @@ def example_graph(name: str) -> tuple[Graph, NodeRegistry]:
         return demo_graph(), demo_registry()
     if name == "Audio":
         return audio_poc.demo()
+    if name == "Audio feedback":
+        return audio_poc.feedback_demo()
     if name == "Image":
         return image_poc.demo()
     if name == "Image feedback":
@@ -167,14 +169,14 @@ def run_example(name: str, document: str, data: bytes, feedback: tuple[str, ...]
     _, registry = example_graph(name)
     graph = loads_graph(document, registry)
     inputs: dict[str, dict[str, object]] = {}
-    if name in ("Audio", "Image", "Image feedback"):
+    if name in ("Audio", "Audio feedback", "Image", "Image feedback"):
         types = {node.node_id: node.type_id for node in graph.nodes}
-        domain = "audio" if name == "Audio" else "image"
+        domain = "audio" if name in ("Audio", "Audio feedback") else "image"
         if types.get("input") != f"{domain}.input" or types.get("output") != f"{domain}.output":
             raise ValueError(
                 "Keep the demo's original input and output nodes to preview/export media"
             )
-        if name == "Audio":
+        if name in ("Audio", "Audio feedback"):
             payload = audio_input(data)
         elif name == "Image feedback":
             payload = feedback_image_input(data)
@@ -205,7 +207,7 @@ def waveform(audio: audio_poc.AudioBuffer) -> go.Figure:
 
 
 def _show_input(name: str, data: bytes) -> None:
-    if name == "Audio":
+    if name in ("Audio", "Audio feedback"):
         st.subheader("Input waveform")
         audio = audio_input(data)
         st.plotly_chart(
@@ -219,6 +221,12 @@ def _show_input(name: str, data: bytes) -> None:
             "WAV: up to 5 seconds, mono/stereo, 8-48 kHz. "
             "Waveforms show at most 2,000 points/channel."
         )
+        if name == "Audio feedback":
+            st.caption(
+                "By default, eight graph passes add up to seven echoes "
+                "(300 ms apart, halving each time). "
+                "Output keeps the input length, so echoes beyond its end are truncated."
+            )
     elif name in ("Image", "Image feedback"):
         st.subheader("Input image")
         st.image(
@@ -242,7 +250,7 @@ def _show_result(name: str, result: RunResult) -> None:
         st.warning("Run stopped at timeout. Only completed passes are available.")
     else:
         st.success("Run complete.")
-    if name == "Audio":
+    if name in ("Audio", "Audio feedback"):
         value = result.outputs.get("output", {}).get("data")
         if value is None and result.timed_out:
             st.warning("No final WAV was completed.")
@@ -323,7 +331,7 @@ def _show_result(name: str, result: RunResult) -> None:
 
 def render_gallery() -> None:
     name = st.sidebar.selectbox(
-        "Example", ("Logic", "Audio", "Image", "Image feedback", "Electronics")
+        "Example", ("Logic", "Audio", "Audio feedback", "Image", "Image feedback", "Electronics")
     )
     editor_key = "editor" if name == "Logic" else f"editor_{name.lower().replace(' ', '_')}"
     if editor_key not in st.session_state:
@@ -331,6 +339,8 @@ def render_gallery() -> None:
         editor = EditorAdapter(graph, registry)
         if name == "Image feedback":
             editor.set_feedback_edges(frozenset({image_poc.FEEDBACK_EDGE_ID}))
+        elif name == "Audio feedback":
+            editor.set_feedback_edges(frozenset({audio_poc.FEEDBACK_EDGE_ID}))
         st.session_state[editor_key] = editor
     editor: EditorAdapter = st.session_state[editor_key]
     st.sidebar.subheader("Graph file")
@@ -368,15 +378,17 @@ def render_gallery() -> None:
             except (ValueError, KeyError, OSError) as error:
                 st.sidebar.error(f"Graph not loaded: {error}")
     data = b""
-    if name in ("Audio", "Image", "Image feedback"):
+    if name in ("Audio", "Audio feedback", "Image", "Image feedback"):
         upload = st.sidebar.file_uploader(
-            "WAV input" if name == "Audio" else "Image input",
-            type=["wav"] if name == "Audio" else ["png", "jpg", "jpeg"],
+            "WAV input" if name in ("Audio", "Audio feedback") else "Image input",
+            type=["wav"] if name in ("Audio", "Audio feedback") else ["png", "jpg", "jpeg"],
             key=f"{name}_upload",
         )
         data = (
             upload.getvalue()
             if upload is not None
+            else audio_poc.feedback_sample_wav()
+            if name == "Audio feedback"
             else audio_poc.sample_wav()
             if name == "Audio"
             else image_poc.feedback_sample_png()

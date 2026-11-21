@@ -44,6 +44,63 @@ def test_audio_feedback_adds_to_the_next_sample_without_replacing_it(
     np.testing.assert_array_equal(audio.samples[:, 0], [1, 2, 3, 4])
 
 
+@pytest.mark.parametrize(
+    ("seconds", "channels", "sample_rate"),
+    [(3, 1, 8000), (5, 2, 48000), (0.1, 2, 8000)],
+)
+def test_direct_audio_feedback_adds_delayed_decaying_echoes_within_input_length(
+    seconds: float, channels: int, sample_rate: int
+) -> None:
+    samples = np.zeros((int(seconds * sample_rate), channels), dtype=np.float32)
+    samples[0] = np.arange(1, channels + 1, dtype=np.float32) * 0.25
+    audio = audio_poc.AudioBuffer(samples, sample_rate)
+    graph, registry = audio_poc.feedback_demo()
+    result = Executor().run(
+        graph,
+        registry,
+        inputs={"input": {"data": audio}},
+        feedback_edge_ids=frozenset({audio_poc.FEEDBACK_EDGE_ID}),
+    )
+    assert not result.timed_out
+    output = result.outputs["output"]["data"]
+    assert isinstance(output, audio_poc.AudioBuffer)
+    assert output.samples.shape == samples.shape
+    expected = samples.copy()
+    delay = round(sample_rate * 0.3)
+    for iteration in range(1, 8):
+        if iteration * delay < len(samples):
+            expected[iteration * delay] = samples[0] * 0.5**iteration
+    np.testing.assert_allclose(output.samples, expected)
+    np.testing.assert_array_equal(samples[1:], 0)
+    assert len(pickle.dumps(result, protocol=pickle.HIGHEST_PROTOCOL)) < MAX_CAPTURE_BYTES
+
+
+def test_direct_audio_feedback_rejects_mismatched_buffers() -> None:
+    echo = audio_poc.FeedbackEcho("echo")
+    original = audio_poc.AudioBuffer(np.zeros((10, 1), dtype=np.float32), 8000)
+    feedback = audio_poc.AudioBuffer(np.zeros((10, 2), dtype=np.float32), 8000)
+    with pytest.raises(ValueError, match="match the original"):
+        echo.combine_loopback("data", [original], feedback)
+
+
+def test_direct_audio_feedback_uses_configured_delay_and_gain() -> None:
+    samples = np.zeros((5000, 1), dtype=np.float32)
+    samples[0, 0] = 0.4
+    audio = audio_poc.AudioBuffer(samples, 8000)
+    graph, registry = audio_poc.feedback_demo()
+    echo = graph.nodes[1].model_copy(update={"params": {"delay_ms": 100, "feedback": 0.25}})
+    graph = graph.model_copy(update={"nodes": (graph.nodes[0], echo, graph.nodes[2])})
+    result = Executor().run(
+        graph,
+        registry,
+        inputs={"input": {"data": audio}},
+        feedback_edge_ids=frozenset({audio_poc.FEEDBACK_EDGE_ID}),
+    )
+    output = result.outputs["output"]["data"]
+    assert isinstance(output, audio_poc.AudioBuffer)
+    np.testing.assert_allclose(output.samples[::800, 0], [0.4 * 0.25**i for i in range(7)])
+
+
 def test_lowpass_attenuates_high_frequency_and_rejects_invalid_cutoff() -> None:
     time = np.arange(16000) / 16000
     samples = np.sin(2 * np.pi * 4000 * time).astype(np.float32)[:, None]

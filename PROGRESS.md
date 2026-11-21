@@ -55,10 +55,13 @@ Status legend: ⬜ not started · 🟨 in progress · ✅ done · ⏸ deferred
 - ✅ Logic gates demo (constant, NOT, AND, OR, XOR; run and inspect outputs)
 - ✅ Audio: WAV upload → gain / low-pass / delay → waveform (in/out) + player + WAV export
   (generated sample, bounded decoding, additive sample feedback, explicit clipping warning)
+- ✅ Audio feedback: generated tone or WAV → eight-pass additive direct graph loop → WAV,
+  with a loopback icon, configurable delay/decay, bounded duration, and waveform/playback previews
 - ✅ Image: upload → grayscale / blur / invert → input + final display + PNG export
   (generated sample, bounded PNG/JPEG decode to RGB)
 - ✅ Image feedback example: 64×64 generated input → 32-pass direct blur loop → PNG,
-  with in-memory iteration review and adjustable browser playback; MP4 deferred
+  with a built-in loopback icon, in-memory iteration review and adjustable browser playback;
+  MP4 deferred
 - ✅ Electronic components: symbolic nodes (no simulation)
 - ✅ Gallery execution and decoded-input caching; runtime payloads separate from graph JSON;
   graph/input changes invalidate displayed results; consumer/media errors shown explicitly

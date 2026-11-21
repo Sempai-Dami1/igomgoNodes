@@ -187,9 +187,24 @@ def test_image_feedback_gallery_starts_configured_and_runs() -> None:
     assert len(at.dataframe[0].value) == 32
 
 
-@pytest.mark.parametrize("name", ["Audio", "Image"])
+def test_audio_feedback_gallery_starts_configured_and_runs() -> None:
+    at = AppTest.from_file("../app.py", default_timeout=30).run()
+    _selectbox(at, "Example").select("Audio feedback").run()
+    editor = at.session_state["editor_audio_feedback"]
+    assert editor.feedback_edge_ids == frozenset({audio_poc.FEEDBACK_EDGE_ID})
+    assert editor.graph.policy.loop.max_iterations == 8
+    _button(at, "Run graph").click().run()
+    assert not at.exception
+    assert not at.error
+    assert any(message.value == "Run complete." for message in at.success)
+    assert len(at.get("audio")) == 2
+    assert len(at.get("plotly_chart")) == 2
+    assert any(button.label == "Download output WAV" for button in at.download_button)
+
+
+@pytest.mark.parametrize("name", ["Audio", "Audio feedback", "Image"])
 def test_upload_changes_invalidate_output_and_decode_errors_are_visible(name: str) -> None:
-    if name == "Audio":
+    if name in ("Audio", "Audio feedback"):
         data = audio_poc.encode_wav(
             audio_poc.AudioBuffer(np.zeros((32, 1), dtype=np.float32), 16000)
         )
@@ -200,7 +215,9 @@ def test_upload_changes_invalidate_output_and_decode_errors_are_visible(name: st
     at = AppTest.from_file("../app.py", default_timeout=30).run()
     _selectbox(at, "Example").select(name).run()
     _button(at, "Run graph").click().run()
-    media_uploader = _file_uploader(at, "WAV input" if name == "Audio" else "Image input")
+    media_uploader = _file_uploader(
+        at, "WAV input" if name in ("Audio", "Audio feedback") else "Image input"
+    )
     media_uploader.set_value((filename, data, mime)).run()
     assert not at.exception
     assert any("Run again" in message.value for message in at.info)
@@ -209,9 +226,9 @@ def test_upload_changes_invalidate_output_and_decode_errors_are_visible(name: st
     assert not at.exception
     assert not at.error
     assert len(at.get("download_button")) == 2
-    _file_uploader(at, "WAV input" if name == "Audio" else "Image input").set_value(
-        (filename, b"corrupt media", mime)
-    ).run()
+    _file_uploader(
+        at, "WAV input" if name in ("Audio", "Audio feedback") else "Image input"
+    ).set_value((filename, b"corrupt media", mime)).run()
     assert not at.exception
     assert at.error
     assert len(at.get("download_button")) == 1

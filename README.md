@@ -177,7 +177,7 @@ default directory is `saved_graphs/` and is ignored by Git.
 
 ## Small runnable examples
 
-Select **Logic**, **Audio**, **Image**, **Image feedback**, or **Electronics** in the sidebar,
+Select **Logic**, **Audio**, **Audio feedback**, **Image**, **Image feedback**, or **Electronics** in the sidebar,
 edit the chain, then click **Run graph**. Audio and image examples start with generated samples;
 upload your own WAV or PNG/JPEG to replace them.
 
@@ -185,6 +185,11 @@ upload your own WAV or PNG/JPEG to replace them.
   WAV download. Delay follows `y[n] = x[n] + feedback * y[n - delay_samples]`, preserves
   the original length, and does not append an echo tail. Playback/export clips to [-1, 1]
   with a warning if needed.
+- Audio feedback: a generated short tone passes through an additive direct graph self-loop.
+  Eight graph passes produce up to seven echoes, 300 ms apart and halving in amplitude
+  by default. Delay and feedback can be adjusted on the echo node. Output preserves the
+  input duration, so later echoes are truncated, including for uploaded audio. Only the
+  final pass is captured to limit memory use.
 - Image: grayscale, blur and invert; input/final RGB previews and PNG download.
 - Image feedback: generated 64×64 image → feedback blur → PNG output. The blur feeds its
   previous result back for 32 graph passes. Review captured passes using Previous/Next,

@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 from html import escape
+from urllib.parse import quote
 from uuid import uuid4
 
 from streamlit_flow.elements import StreamlitFlowEdge, StreamlitFlowNode
@@ -9,6 +10,64 @@ from streamlit_flow.state import StreamlitFlowState
 
 from igomgo_nodes.core import Edge, Graph, GraphPolicy, NodeInstance, NodeRegistry, Position
 from igomgo_nodes.core.unroll import MAX_EXPANDED_EDGES, MAX_EXPANDED_NODES
+
+_FEEDBACK_BLUR_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<rect x="10" y="17" width="32" height="32" rx="3" fill="#ec7da7"/>
+<path d="M10 17h16v16H10zm16 16h16v16H26z" fill="#6ac694"/>
+<path d="M42 33h14m-5-4 5 4-5 4M73 33h15m-5-4 5 4-5 4"
+ fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<path d="M64 24l9 9-9 9-9-9z" fill="#384e5c" stroke="#5dd8cb"/>
+<rect x="90" y="17" width="32" height="32" rx="4" fill="#bc9ca5"/>
+<circle cx="98" cy="25" r="7" fill="#93b9a2" opacity=".8"/>
+<circle cx="114" cy="41" r="7" fill="#93b9a2" opacity=".8"/>
+<path d="M123 33h19v23H64V44m-4 5 4-5 4 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<path d="M143 33h16m-5-4 5 4-5 4" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+</svg>"""
+_FEEDBACK_ECHO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<rect x="10" y="17" width="32" height="32" rx="3" fill="#30495a"/>
+<path d="M13 33h3l2-9 4 18 4-21 4 18 3-10 2 4h4"
+ fill="none" stroke="#ec7da7" stroke-width="2" stroke-linejoin="round"/>
+<path d="M42 33h14m-5-4 5 4-5 4M73 33h15m-5-4 5 4-5 4"
+ fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<path d="M64 24l9 9-9 9-9-9z" fill="#384e5c" stroke="#5dd8cb"/>
+<path d="M60 33h8m-4-4v8" stroke="#5dd8cb" stroke-width="1.5"/>
+<rect x="90" y="17" width="32" height="32" rx="4" fill="#30495a"/>
+<path d="M93 33h2l2-9 3 18 3-16 3 14 3-11 3 8 3-6 2 4h2"
+ fill="none" stroke="#6ac694" stroke-width="2" stroke-linejoin="round"/>
+<path d="M123 33h19v23H64V44m-4 5 4-5 4 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<path d="M143 33h16m-5-4 5 4-5 4" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+</svg>"""
+_WAV_INPUT_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<path d="M22 14h27l10 10v34H22z" fill="#30495a" stroke="#9bb6c3" stroke-width="2"/>
+<path d="M49 14v10h10M28 34h25M28 40h25M28 46h17" fill="none" stroke="#9bb6c3"
+ stroke-width="2"/>
+<path d="M68 36h27m-6-5 6 5-6 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<rect x="105" y="19" width="52" height="34" rx="4" fill="#30495a"/>
+<path d="M109 36h5l3-10 5 20 5-24 5 25 5-18 4 14 4-10 3 3h5"
+ fill="none" stroke="#ec7da7" stroke-width="2" stroke-linejoin="round"/>
+</svg>"""
+_WAV_OUTPUT_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<rect x="12" y="19" width="48" height="34" rx="4" fill="#30495a"/>
+<path d="M16 36h4l3-10 5 20 5-24 5 25 5-18 4 14 4-10 3 3h2"
+ fill="none" stroke="#6ac694" stroke-width="2" stroke-linejoin="round"/>
+<path d="M65 36h20m-6-5 6 5-6 5M90 36h7M97 36V21h9M97 36v15h9"
+ fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<path d="M111 17h7l8-6v20l-8-6h-7z" fill="#9bb6c3"/>
+<path d="M130 17c3 2 3 6 0 8m4-12c6 4 6 12 0 16"
+ fill="none" stroke="#9bb6c3" stroke-width="2" stroke-linecap="round"/>
+<path d="M110 39h20l7 7v17h-27z" fill="#30495a" stroke="#9bb6c3" stroke-width="2"/>
+<path d="M130 39v7h7m-22 5h16m-16 5h16" fill="none" stroke="#9bb6c3" stroke-width="2"/>
+</svg>"""
+_BUILTIN_ICONS = {
+    "feedback-blur": f'url("data:image/svg+xml,{quote(_FEEDBACK_BLUR_SVG)}")',
+    "feedback-echo": f'url("data:image/svg+xml,{quote(_FEEDBACK_ECHO_SVG)}")',
+    "wav-input": f'url("data:image/svg+xml,{quote(_WAV_INPUT_SVG)}")',
+    "wav-output": f'url("data:image/svg+xml,{quote(_WAV_OUTPUT_SVG)}")',
+}
 
 
 class EditorAdapter:
@@ -34,11 +93,26 @@ class EditorAdapter:
         nodes: list[StreamlitFlowNode] = []
         for node in self.graph.nodes:
             spec = self.registry.resolve(node.type_id).spec
+            icon = _BUILTIN_ICONS.get(spec.icon)
+            style: dict[str, object] = {}
+            if icon:
+                style.update(
+                    {
+                        "backgroundImage": icon,
+                        "backgroundRepeat": "no-repeat",
+                        "backgroundPosition": "center 8px",
+                        "backgroundSize": "180px 72px",
+                        "paddingTop": 86,
+                        "minWidth": 200,
+                    }
+                )
+            if node.node_id == self.selected_id:
+                style["border"] = "2px solid red"
             nodes.append(
                 StreamlitFlowNode(
                     node.node_id,
                     (node.position.x, node.position.y),
-                    {"content": escape(f"{spec.icon} {spec.title}".strip())},
+                    {"content": escape(f"{'' if icon else spec.icon} {spec.title}".strip())},
                     node_type="default"
                     if spec.inputs and spec.outputs
                     else ("input" if spec.outputs else "output"),
@@ -48,7 +122,7 @@ class EditorAdapter:
                     selected=node.node_id == self.selected_id,
                     connectable=bool(spec.inputs or spec.outputs),
                     deletable=False,
-                    style={"border": "2px solid red"} if node.node_id == self.selected_id else {},
+                    style=style,
                 )
             )
         edges = [
