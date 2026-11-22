@@ -23,6 +23,7 @@ examples = [
     "numpy>=2.0",
     "scipy>=1.14",
     "pillow>=11.0",
+    "qrcode>=8.0",
     "plotly>=5.24",
     "soundfile>=0.12",
 ]

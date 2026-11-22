@@ -131,7 +131,10 @@ errors without changing the graph. Feedback must
 be enabled in Graph policy before closing a cycle; explicitly select the next-iteration
 connections afterward. Validate graph checks readiness without executing it.
 
-For tablet or desktop use, turn on **Focus mode** in the sidebar. **Setup** contains
+The header's QR code opens the current app address; when deployed, it uses that public
+address. Locally, an address such as `localhost` may not be reachable from another device.
+
+For tablet or desktop use, turn on **Focus mode** in the header. **Setup** contains
 example selection, files, palette, and policy; **Draft** contains the canvas and
 validation; **Node** contains the inspector and connections; **Graph** contains the
 input preview, run button, and output. Collapse the sidebar for more room. Turn focus

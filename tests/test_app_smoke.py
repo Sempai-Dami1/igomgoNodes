@@ -1,7 +1,10 @@
 from copy import deepcopy
+from unittest.mock import PropertyMock, patch
 
 import numpy as np
 import pytest
+import qrcode
+import streamlit as st
 from streamlit.testing.v1 import AppTest
 from streamlit.testing.v1.element_tree import Button, FileUploader, Selectbox
 
@@ -16,6 +19,29 @@ def test_app_renders_without_errors() -> None:
 
     assert not at.exception
     assert at.title[0].value.endswith("igomgoNodes")
+
+
+def test_header_uses_current_app_url_for_qr_and_keeps_focus_switch_in_main() -> None:
+    url = "https://example.streamlit.app"
+    with (
+        patch.object(type(st.context), "url", new_callable=PropertyMock, return_value=url),
+        patch.object(qrcode, "make", wraps=qrcode.make) as make_qr,
+    ):
+        at = AppTest.from_file("../app.py", default_timeout=30).run()
+    assert not at.exception
+    make_qr.assert_called_once_with(url)
+    assert len(at.get("image")) == 1
+    assert at.main.toggle[0].label == "Focus mode"
+    assert not at.sidebar.toggle
+
+
+def test_header_reports_url_too_long_for_qr() -> None:
+    url = "https://example.streamlit.app/" + "a" * 5000
+    with patch.object(type(st.context), "url", new_callable=PropertyMock, return_value=url):
+        at = AppTest.from_file("../app.py", default_timeout=30).run()
+    assert not at.exception
+    assert any("Cannot generate a QR code" in warning.value for warning in at.warning)
+    assert at.main.toggle[0].label == "Focus mode"
 
 
 def _button(at: AppTest, label: str) -> Button:

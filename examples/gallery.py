@@ -467,8 +467,7 @@ def _output(name: str, editor_key: str, editor: EditorAdapter, data: bytes) -> N
         st.error(str(error))
 
 
-def render_gallery() -> None:
-    focus = st.sidebar.toggle("Focus mode", key="focus_mode")
+def render_gallery(*, focus: bool) -> None:
     if focus:
         setup, draft, node, graph = st.tabs(
             ["Setup", "Draft", "Node", "Graph"], key="focus_tab", on_change="rerun"
