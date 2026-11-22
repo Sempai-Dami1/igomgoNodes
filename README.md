@@ -133,6 +133,8 @@ connections afterward. Validate graph checks readiness without executing it.
 
 The header's QR code opens the current app address; when deployed, it uses that public
 address. Locally, an address such as `localhost` may not be reachable from another device.
+The **About**, **Help**, and **Feedback** popovers provide app information, basic
+instructions, and a link to the hosted feedback form.
 
 For tablet or desktop use, turn on **Focus mode** in the header. **Setup** contains
 example selection, files, palette, and policy; **Draft** contains the canvas and

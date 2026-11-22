@@ -52,6 +52,8 @@ Status legend: ⬜ not started · 🟨 in progress · ✅ done · ⏸ deferred
   explicit run-readiness validation; incomplete graphs allowed during editing)
 - ⏸ Double-click / double-tap edge deletion and drag-to-rewire gestures deferred to a
   custom canvas; see FUTURE.md
+- ⏸ Double-click node navigation in focus mode deferred until a suitable canvas supports it;
+  see FUTURE.md
 
 ## Phase 4 — Proof-of-concept examples
 - ✅ Logic gates demo (constant, NOT, AND, OR, XOR; run and inspect outputs)

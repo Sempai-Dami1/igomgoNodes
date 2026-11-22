@@ -44,6 +44,27 @@ def test_header_reports_url_too_long_for_qr() -> None:
     assert at.main.toggle[0].label == "Focus mode"
 
 
+def test_header_popovers_and_links_remain_available_in_focus_mode() -> None:
+    at = AppTest.from_file("../app.py", default_timeout=30).run()
+    at.toggle[0].set_value(True).run()
+
+    assert not at.exception
+    popovers = at.get("popover")
+    assert [popover.proto.popover.label for popover in popovers] == [
+        "About",
+        "Help",
+        "Feedback",
+    ]
+    assert any("https://igomgo.com" in item.value for item in popovers[0].markdown)
+    link = popovers[2].get("link_button")[0]
+    assert link.proto.label == "Open feedback form"
+    assert link.proto.url == (
+        "https://docs.google.com/forms/d/e/"
+        "1FAIpQLSf6Ixq_xBFYUaL8hd5lduzqHdtV32SD3RVRPb3vqGsHkwNxqg/"
+        "viewform?usp=publish-editor"
+    )
+
+
 def _button(at: AppTest, label: str) -> Button:
     return next(button for button in at.button if button.label == label)
 

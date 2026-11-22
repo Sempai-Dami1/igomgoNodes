@@ -8,6 +8,9 @@ Ideas parked here are **out of scope** until promoted into [PROGRESS.md](./PROGR
   coordinates and directional touch buttons instead.
 - Custom Streamlit component (React Flow / Rete.js) with per-port handles and client-side
   rule enforcement
+- Focus-mode node navigation: double-click a node in Draft to select it and open the
+  Node tab. The current canvas component does not expose a double-click event; evaluate
+  double-tap support separately when the canvas is replaced.
 - Edge rewiring gestures for a future custom canvas: double-click or double-tap a path and
   release without dragging to delete it. Hold the second press and drag to detach the
   destination while extending a new path from the original source to the pointer. Dropping
