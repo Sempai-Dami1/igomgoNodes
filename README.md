@@ -131,10 +131,17 @@ errors without changing the graph. Feedback must
 be enabled in Graph policy before closing a cycle; explicitly select the next-iteration
 connections afterward. Validate graph checks readiness without executing it.
 
-Use **Download graph** and **Load graph** in the sidebar to save or restore the editor
-state on your own computer. The versioned editor file contains the core graph JSON and
-its selected feedback boundaries. Loading is validated against the current consumer
-registry and applied transactionally; an invalid file leaves the current graph untouched.
+For tablet or desktop use, turn on **Focus mode** in the sidebar. **Setup** contains
+example selection, files, palette, and policy; **Draft** contains the canvas and
+validation; **Node** contains the inspector and connections; **Graph** contains the
+input preview, run button, and output. Collapse the sidebar for more room. Turn focus
+mode off to return to the original layout without losing the current graph or uploads.
+
+Use **Download graph** and **Load graph** in the sidebar (or Setup in focus mode) to
+save or restore the editor state on your own computer. The versioned editor file contains
+the core graph JSON and its selected feedback boundaries. Loading is validated against
+the current consumer registry and applied transactionally; an invalid file leaves the
+current graph untouched.
 Core `dumps_graph` / `loads_graph` JSON files can also be loaded.
 
 For your own Streamlit consumer:
@@ -148,6 +155,10 @@ if "graph_editor" not in st.session_state:
 render_editor(st.session_state.graph_editor)
 edited_graph = st.session_state.graph_editor.graph
 ```
+
+For custom layouts, pass `section="setup"`, `"draft"`, or `"node"` to `render_editor`
+to render that section in the current container. The default `"all"` keeps the original
+sidebar-and-main layout.
 
 Install the `ui` extra for this optional interface. Consumers can declare a Pydantic
 `parameter_model` on their `BaseNode` subclass to generate inspector/palette fields and
@@ -177,7 +188,8 @@ default directory is `saved_graphs/` and is ignored by Git.
 
 ## Small runnable examples
 
-Select **Logic**, **Audio**, **Audio feedback**, **Image**, **Image feedback**, or **Electronics** in the sidebar,
+Select **Logic**, **Audio**, **Audio feedback**, **Image**, **Image feedback**, **Electronics**,
+or **Electronics feedback** in the sidebar,
 edit the chain, then click **Run graph**. Audio and image examples start with generated samples;
 upload your own WAV or PNG/JPEG to replace them.
 
@@ -199,6 +211,13 @@ upload your own WAV or PNG/JPEG to replace them.
   are saved. PNG download contains the final pass.
 - Logic: Boolean constants, NOT, AND, OR and XOR; inspect node output values.
 - Electronics: supply/resistor/LED labels only, not a circuit simulator.
+- Electronics feedback: an idealized numerical square-root estimator with a bounded
+  direct graph loop. Set the number on the input node (0–10,000); the estimator starts
+  at 1 and performs eight Newton iterations by default. Review the estimates in the
+  captured-pass table; some inputs need more iterations for accuracy. It is not a
+  simulation of an electronic circuit; its icon is an
+  illustrative op-amp/multiplier feedback diagram inspired by the
+  [AD633 datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/AD633.pdf).
 
 Uploads are limited to 5 MiB. WAVs must be nonempty, at most 5 seconds, mono/stereo,
 and 8–48 kHz; images are limited to 262,144 pixels. Waveform charts display at most

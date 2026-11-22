@@ -62,11 +62,74 @@ _WAV_OUTPUT_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72
 <path d="M110 39h20l7 7v17h-27z" fill="#30495a" stroke="#9bb6c3" stroke-width="2"/>
 <path d="M130 39v7h7m-22 5h16m-16 5h16" fill="none" stroke="#9bb6c3" stroke-width="2"/>
 </svg>"""
+_IMAGE_INPUT_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<path d="M22 14h27l10 10v34H22z" fill="#30495a" stroke="#9bb6c3" stroke-width="2"/>
+<path d="M49 14v10h10" fill="none" stroke="#9bb6c3" stroke-width="2"/>
+<circle cx="33" cy="33" r="3" fill="#ec7da7"/>
+<path d="M27 50l9-10 5 5 5-7 8 12z" fill="#6ac694"/>
+<path d="M68 36h27m-6-5 6 5-6 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<rect x="105" y="19" width="40" height="34" rx="3" fill="#ec7da7"/>
+<path d="M105 19h20v17h-20zm20 17h20v17h-20z" fill="#6ac694"/>
+</svg>"""
+_IMAGE_OUTPUT_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<rect x="12" y="19" width="40" height="34" rx="3" fill="#ec7da7"/>
+<path d="M12 19h20v17H12zm20 17h20v17H32z" fill="#6ac694"/>
+<path d="M60 36h25m-6-5 6 5-6 5M90 36h7M97 36V21h9M97 36v15h9"
+ fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<rect x="110" y="10" width="32" height="22" rx="2" fill="#30495a" stroke="#9bb6c3"/>
+<circle cx="119" cy="17" r="2" fill="#ec7da7"/>
+<path d="M113 28l7-7 5 4 5-5 9 8z" fill="#6ac694"/>
+<path d="M110 39h20l7 7v17h-27z" fill="#30495a" stroke="#9bb6c3" stroke-width="2"/>
+<path d="M130 39v7h7m-22 5h16m-16 5h16" fill="none" stroke="#9bb6c3" stroke-width="2"/>
+</svg>"""
+_SQUARE_ROOT_FEEDBACK_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<path d="M42 8v36l34-18z" fill="#30495a" stroke="#9bb6c3" stroke-width="2"/>
+<path d="M10 17h32m34 9h86m-6-5 6 5-6 5"
+ fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<path d="M47 16h6m-3-3v6m-3 15h6" stroke="#9bb6c3" stroke-width="1.5"/>
+<rect x="100" y="43" width="25" height="20" rx="2" fill="#30495a" stroke="#9bb6c3"/>
+<path d="M108 48l9 10m0-10-9 10" stroke="#ec7da7" stroke-width="2"/>
+<path d="M135 26v22h-10m18-22v29h-18M100 53H31V36h11"
+ fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<circle cx="135" cy="26" r="2" fill="#5dd8cb"/>
+<circle cx="143" cy="26" r="2" fill="#5dd8cb"/>
+</svg>"""
+_ELECTRONICS_SUPPLY_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<rect x="12" y="13" width="52" height="46" rx="4" fill="#30495a"/>
+<text x="38" y="25" text-anchor="middle" fill="#9bb6c3" font-family="sans-serif"
+ font-size="10">AC</text>
+<path d="M20 42c5-14 10-14 15 0s10 14 15 0 5-14 7-14"
+ fill="none" stroke="#ec7da7" stroke-width="2"/>
+<rect x="72" y="13" width="52" height="46" rx="4" fill="#30495a"/>
+<text x="98" y="25" text-anchor="middle" fill="#9bb6c3" font-family="sans-serif"
+ font-size="10">DC</text>
+<path d="M81 36h34m-34 7h6m4 0h6m4 0h6m4 0h4"
+ fill="none" stroke="#6ac694" stroke-width="2"/>
+<path d="M130 36h29m-6-5 6 5-6 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+</svg>"""
+_ELECTRONICS_LED_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<path d="M19 39h35m-6-5 6 5-6 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<circle cx="91" cy="39" r="23" fill="#30495a" stroke="#9bb6c3" stroke-width="2"/>
+<path d="M63 40h14m0-10v20l19-10zm19-10v20m0-10h22"
+ fill="none" stroke="#6ac694" stroke-width="2" stroke-linejoin="round"/>
+<path d="M102 20l9-8m-1 5 1-5-5 1M112 26l9-8m-1 5 1-5-5 1"
+ fill="none" stroke="#ec7da7" stroke-width="2" stroke-linecap="round"/>
+</svg>"""
 _BUILTIN_ICONS = {
     "feedback-blur": f'url("data:image/svg+xml,{quote(_FEEDBACK_BLUR_SVG)}")',
     "feedback-echo": f'url("data:image/svg+xml,{quote(_FEEDBACK_ECHO_SVG)}")',
     "wav-input": f'url("data:image/svg+xml,{quote(_WAV_INPUT_SVG)}")',
     "wav-output": f'url("data:image/svg+xml,{quote(_WAV_OUTPUT_SVG)}")',
+    "image-input": f'url("data:image/svg+xml,{quote(_IMAGE_INPUT_SVG)}")',
+    "image-output": f'url("data:image/svg+xml,{quote(_IMAGE_OUTPUT_SVG)}")',
+    "square-root-feedback": f'url("data:image/svg+xml,{quote(_SQUARE_ROOT_FEEDBACK_SVG)}")',
+    "electronics-supply": f'url("data:image/svg+xml,{quote(_ELECTRONICS_SUPPLY_SVG)}")',
+    "electronics-led": f'url("data:image/svg+xml,{quote(_ELECTRONICS_LED_SVG)}")',
 }
 
 

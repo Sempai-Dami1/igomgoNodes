@@ -5,7 +5,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 from streamlit.testing.v1.element_tree import Button, FileUploader, Selectbox
 
-from examples import audio_poc, image_poc
+from examples import audio_poc, electronics_poc, image_poc
 from examples.editor_demo import demo_graph
 from igomgo_nodes.core import Graph
 from igomgo_nodes.storage import BrowserFileStore
@@ -202,6 +202,29 @@ def test_audio_feedback_gallery_starts_configured_and_runs() -> None:
     assert any(button.label == "Download output WAV" for button in at.download_button)
 
 
+def test_electronics_feedback_gallery_runs_and_refreshes_when_input_changes() -> None:
+    at = AppTest.from_file("../app.py", default_timeout=30).run()
+    _selectbox(at, "Example").select("Electronics feedback").run()
+    editor = at.session_state["editor_electronics_feedback"]
+    assert editor.feedback_edge_ids == frozenset({electronics_poc.FEEDBACK_EDGE_ID})
+    assert editor.graph.policy.loop.max_iterations == 8
+    _button(at, "Run graph").click().run()
+    assert not at.exception
+    assert not at.error
+    assert at.code[0].value == "3"
+    assert len(at.dataframe) == 1
+    rows = at.dataframe[0].value
+    assert rows["estimate"].iloc[0] == 5
+    assert len(rows) == 8
+    editor.update_params("input", {"value": 16})
+    at.run()
+    assert any("Run again" in message.value for message in at.info)
+    _button(at, "Run graph").click().run()
+    assert not at.exception
+    assert not at.error
+    assert at.code[0].value == "4"
+
+
 @pytest.mark.parametrize("name", ["Audio", "Audio feedback", "Image"])
 def test_upload_changes_invalidate_output_and_decode_errors_are_visible(name: str) -> None:
     if name in ("Audio", "Audio feedback"):
@@ -265,3 +288,88 @@ def test_graph_file_download_and_import_restore_graph_transactionally() -> None:
     assert not at.exception
     assert at.session_state["editor"].graph == current_graph
     assert any("Graph not loaded" in message.value for message in at.error)
+
+
+def test_focus_mode_keeps_editor_and_invalidates_results_across_tabs() -> None:
+    at = AppTest.from_file("../app.py", default_timeout=30).run()
+    at.toggle[0].set_value(True).run()
+    assert [tab.label for tab in at.tabs] == ["Setup", "Draft", "Node", "Graph"]
+    _button(at, "Add node").click().run()
+    editor = at.session_state["editor"]
+    node_id = editor.selected_id
+
+    at.session_state["focus_tab"] = "Draft"
+    at.run()
+    assert not at.exception
+    assert _button(at, "Validate graph")
+    assert editor.selected_id == node_id
+
+    at.session_state["focus_tab"] = "Node"
+    at.run()
+    next(
+        widget
+        for widget in at.checkbox
+        if widget.label == "Value" and widget.key is not None and "_param_" in widget.key
+    ).uncheck()
+    _button(at, "Apply parameters").click().run()
+    assert editor.node(node_id).params == {"value": False}
+
+    at.session_state["focus_tab"] = "Graph"
+    at.run()
+    _button(at, "Run graph").click().run()
+    assert any(message.value == "Run complete." for message in at.success)
+    at.session_state["focus_tab"] = "Node"
+    at.run()
+    _button(at, "Right").click().run()
+    at.session_state["focus_tab"] = "Graph"
+    at.run()
+    assert any("Run again" in message.value for message in at.info)
+    assert not any(message.value == "Run complete." for message in at.success)
+    at.toggle[0].set_value(False).run()
+    assert not at.exception
+    assert at.session_state["editor"] is editor
+    assert editor.selected_id == node_id
+    assert editor.node(node_id).params == {"value": False}
+
+
+def test_focus_mode_preserves_uploads_and_imported_graph_across_navigation() -> None:
+    at = AppTest.from_file("../app.py", default_timeout=30).run()
+    _selectbox(at, "Example").select("Image").run()
+    data = image_poc.encode_png(np.zeros((4, 6, 3), dtype=np.uint8))
+    _file_uploader(at, "Image input").set_value(("input.png", data, "image/png")).run()
+    editor = at.session_state["editor_image"]
+    payload = BrowserFileStore().serialize(editor.graph)
+    _file_uploader(at, "Load graph").set_value(("graph.json", payload, "application/json")).run()
+    editor.update_params("blur", {"radius": 2})
+
+    at.toggle[0].set_value(True).run()
+    assert _selectbox(at, "Example").value == "Image"
+    assert _file_uploader(at, "Image input").value.getvalue() == data
+    assert editor.node("blur").params["radius"] == 2
+    at.session_state["focus_tab"] = "Graph"
+    at.run()
+    _button(at, "Run graph").click().run()
+    assert not at.exception
+    assert any(message.value == "Run complete." for message in at.success)
+    assert len(at.get("image")) == 2
+
+    at.session_state["focus_tab"] = "Draft"
+    at.run()
+    assert _file_uploader(at, "Image input").value.getvalue() == data
+    assert editor.node("blur").params["radius"] == 2
+    at.toggle[0].set_value(False).run()
+    assert not at.exception
+    assert _file_uploader(at, "Image input").value.getvalue() == data
+    assert editor.node("blur").params["radius"] == 2
+    assert any(message.value == "Run complete." for message in at.success)
+
+    at.toggle[0].set_value(True).run()
+    at.session_state["focus_tab"] = "Setup"
+    at.run()
+    changed = image_poc.encode_png(np.full((4, 6, 3), 255, dtype=np.uint8))
+    _file_uploader(at, "Image input").set_value(("changed.png", changed, "image/png")).run()
+    at.session_state["focus_tab"] = "Graph"
+    at.run()
+    assert not at.exception
+    assert any("Run again" in message.value for message in at.info)
+    assert not any(message.value == "Run complete." for message in at.success)

@@ -75,10 +75,11 @@ def _image(inputs: Mapping[str, object]) -> NDArray[np.uint8]:
     return value
 
 
-def _spec(name: str, title: str, *, optional_input: bool = False) -> NodeSpec:
+def _spec(name: str, title: str, *, optional_input: bool = False, icon: str = "") -> NodeSpec:
     return NodeSpec(
         type_id=f"image.{name}",
         title=title,
+        icon=icon,
         category="Image",
         inputs=(PortSpec(name="data", dtype="image", min_connections=0 if optional_input else 1),),
         outputs=(PortSpec(name="data", dtype="image"),),
@@ -86,7 +87,7 @@ def _spec(name: str, title: str, *, optional_input: bool = False) -> NodeSpec:
 
 
 class ImageInput(BaseNode):
-    spec = _spec("input", "Image input", optional_input=True)
+    spec = _spec("input", "Image input", optional_input=True, icon="image-input")
 
     def process(self, inputs: Mapping[str, object]) -> dict[str, object]:
         return {"data": _image(inputs)}
@@ -145,7 +146,7 @@ class Invert(BaseNode):
 
 
 class ImageOutput(BaseNode):
-    spec = _spec("output", "PNG output")
+    spec = _spec("output", "PNG output", icon="image-output")
 
     def process(self, inputs: Mapping[str, object]) -> dict[str, object]:
         return {"data": _image(inputs)}
@@ -163,9 +164,9 @@ def feedback_demo() -> tuple[Graph, NodeRegistry]:
             nodes=(
                 NodeInstance(node_id="input", type_id="image.input"),
                 NodeInstance(
-                    node_id="blur", type_id="image.feedback_blur", position=Position(x=220)
+                    node_id="blur", type_id="image.feedback_blur", position=Position(x=300)
                 ),
-                NodeInstance(node_id="output", type_id="image.output", position=Position(x=540)),
+                NodeInstance(node_id="output", type_id="image.output", position=Position(x=650)),
             ),
             edges=(
                 Edge(

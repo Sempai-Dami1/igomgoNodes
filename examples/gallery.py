@@ -146,6 +146,8 @@ def example_graph(name: str) -> tuple[Graph, NodeRegistry]:
         return image_poc.feedback_demo()
     if name == "Electronics":
         return electronics_poc.demo()
+    if name == "Electronics feedback":
+        return electronics_poc.feedback_demo()
     raise ValueError(f"Unknown example: {name}")
 
 
@@ -243,6 +245,12 @@ def _show_input(name: str, data: bytes) -> None:
             "Symbolic labels only. No circuit simulation, current calculation "
             "or real-world design advice."
         )
+    elif name == "Electronics feedback":
+        st.info(
+            "Idealized numerical square-root iteration, not a circuit simulation. "
+            "Set the input value in the Number input node; the starting estimate is 1. "
+            "Some inputs need more passes for an accurate estimate."
+        )
 
 
 def _show_result(name: str, result: RunResult) -> None:
@@ -298,6 +306,15 @@ def _show_result(name: str, result: RunResult) -> None:
             st.code(str(value), language=None)
         elif not result.timed_out:
             raise ValueError("The symbolic output node is missing")
+    elif name == "Electronics feedback":
+        value = result.outputs.get("output", {}).get("estimate")
+        if value is None and result.timed_out:
+            st.warning("No final estimate was completed.")
+        elif not isinstance(value, float):
+            raise ValueError("The output node did not produce a square-root estimate")
+        else:
+            st.subheader("Square-root estimate")
+            st.code(f"{value:.12g}", language=None)
     else:
         st.subheader("Logic values")
         st.json(result.outputs)
@@ -320,18 +337,35 @@ def _show_result(name: str, result: RunResult) -> None:
                 _FRAME_PLAYER(data={"frames": frames}, key="image_feedback_player")
             else:
                 st.info("No feedback blur frames were captured in this run.")
-        st.dataframe(
-            [
-                {"component": ", ".join(snapshot.component), "iteration": snapshot.iteration}
-                for snapshot in result.snapshots
-            ],
-            hide_index=True,
-        )
+        rows: list[dict[str, object]] = []
+        for snapshot in result.snapshots:
+            row: dict[str, object] = {
+                "component": ", ".join(snapshot.component),
+                "iteration": snapshot.iteration,
+            }
+            if name == "Electronics feedback" and "sqrt" in snapshot.outputs:
+                state = snapshot.outputs["sqrt"].get("data")
+                if not isinstance(state, electronics_poc.SquareRootState):
+                    raise ValueError("The square-root estimator did not produce an estimate")
+                row["input"] = state.radicand
+                row["estimate"] = state.estimate
+            rows.append(row)
+        st.dataframe(rows, hide_index=True)
 
 
-def render_gallery() -> None:
-    name = st.sidebar.selectbox(
-        "Example", ("Logic", "Audio", "Audio feedback", "Image", "Image feedback", "Electronics")
+def _setup() -> tuple[str, str, EditorAdapter, bytes, bool]:
+    name = st.selectbox(
+        "Example",
+        (
+            "Logic",
+            "Audio",
+            "Audio feedback",
+            "Image",
+            "Image feedback",
+            "Electronics",
+            "Electronics feedback",
+        ),
+        key="gallery_example",
     )
     editor_key = "editor" if name == "Logic" else f"editor_{name.lower().replace(' ', '_')}"
     if editor_key not in st.session_state:
@@ -341,23 +375,25 @@ def render_gallery() -> None:
             editor.set_feedback_edges(frozenset({image_poc.FEEDBACK_EDGE_ID}))
         elif name == "Audio feedback":
             editor.set_feedback_edges(frozenset({audio_poc.FEEDBACK_EDGE_ID}))
+        elif name == "Electronics feedback":
+            editor.set_feedback_edges(frozenset({electronics_poc.FEEDBACK_EDGE_ID}))
         st.session_state[editor_key] = editor
     editor: EditorAdapter = st.session_state[editor_key]
-    st.sidebar.subheader("Graph file")
+    st.subheader("Graph file")
     try:
         graph_file = BROWSER_STORE.serialize(editor.graph, editor.feedback_edge_ids)
     except (ValueError, KeyError) as error:
         graph_file = None
-        st.sidebar.error(f"Cannot save this graph: {error}")
+        st.error(f"Cannot save this graph: {error}")
     if graph_file is not None:
-        st.sidebar.download_button(
+        st.download_button(
             "Download graph",
             data=graph_file,
             file_name=f"{name.lower()}-graph.igomgo.json",
             mime="application/json",
             key=f"{editor_key}_graph_download",
         )
-    uploaded_graph = st.sidebar.file_uploader(
+    uploaded_graph = st.file_uploader(
         "Load graph",
         type=["json"],
         key=f"{editor_key}_graph_upload",
@@ -374,12 +410,13 @@ def render_gallery() -> None:
                 editor.replace_graph(document.graph, frozenset(document.feedback_edge_ids))
                 st.session_state[loaded_hash_key] = uploaded_hash
                 st.session_state.pop(f"{editor_key}_last_run", None)
-                st.sidebar.success("Graph loaded.")
+                st.success("Graph loaded.")
             except (ValueError, KeyError, OSError) as error:
-                st.sidebar.error(f"Graph not loaded: {error}")
+                st.error(f"Graph not loaded: {error}")
     data = b""
+    using_sample = False
     if name in ("Audio", "Audio feedback", "Image", "Image feedback"):
-        upload = st.sidebar.file_uploader(
+        upload = st.file_uploader(
             "WAV input" if name in ("Audio", "Audio feedback") else "Image input",
             type=["wav"] if name in ("Audio", "Audio feedback") else ["png", "jpg", "jpeg"],
             key=f"{name}_upload",
@@ -395,9 +432,11 @@ def render_gallery() -> None:
             if name == "Image feedback"
             else image_poc.sample_png()
         )
-        if upload is None:
-            st.caption("Using the generated sample. Upload a file to replace it.")
-    render_editor(editor, key=editor_key)
+        using_sample = upload is None
+    return name, editor_key, editor, data, using_sample
+
+
+def _output(name: str, editor_key: str, editor: EditorAdapter, data: bytes) -> None:
     try:
         _show_input(name, data)
         document = dumps_graph(editor.graph)
@@ -426,3 +465,33 @@ def render_gallery() -> None:
     ) as error:
         st.session_state.pop(f"{editor_key}_last_run", None)
         st.error(str(error))
+
+
+def render_gallery() -> None:
+    focus = st.sidebar.toggle("Focus mode", key="focus_mode")
+    if focus:
+        setup, draft, node, graph = st.tabs(
+            ["Setup", "Draft", "Node", "Graph"], key="focus_tab", on_change="rerun"
+        )
+        # Upload widgets remain mounted so Streamlit retains their files across tabs.
+        with setup:
+            name, editor_key, editor, data, using_sample = _setup()
+            render_editor(editor, key=editor_key, section="setup")
+        if draft.open:
+            with draft:
+                render_editor(editor, key=editor_key, section="draft")
+        if node.open:
+            with node:
+                render_editor(editor, key=editor_key, section="node")
+        if graph.open:
+            with graph:
+                if using_sample:
+                    st.caption("Using the generated sample. Upload a file to replace it.")
+                _output(name, editor_key, editor, data)
+    else:
+        with st.sidebar:
+            name, editor_key, editor, data, using_sample = _setup()
+        if using_sample:
+            st.caption("Using the generated sample. Upload a file to replace it.")
+        render_editor(editor, key=editor_key)
+        _output(name, editor_key, editor, data)

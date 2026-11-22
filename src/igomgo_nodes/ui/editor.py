@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import Callable, Mapping
+from typing import Literal
 
 import streamlit as st
 from streamlit_flow import streamlit_flow
@@ -323,11 +324,7 @@ def _connections(editor: EditorAdapter, key: str) -> None:
                 )
 
 
-def render_editor(editor: EditorAdapter, *, key: str = "editor") -> None:
-    """Render a session-owned adapter; all accepted edits update editor.graph."""
-    with st.sidebar:
-        _palette(editor, key)
-        _policy(editor, key)
+def _canvas(editor: EditorAdapter, key: str) -> None:
     notice = st.empty()
     st.caption("Select a node or connection, then use its on-screen delete button.")
     revision = editor.revision
@@ -355,11 +352,21 @@ def render_editor(editor: EditorAdapter, *, key: str = "editor") -> None:
             notice.error(message)
         else:
             notice.success(message)
-    inspector, connections = st.columns(2)
-    with inspector:
+
+
+def _node_controls(editor: EditorAdapter, key: str, *, stacked: bool = False) -> None:
+    if stacked:
         _inspector(editor, key)
-    with connections:
         _connections(editor, key)
+    else:
+        inspector, connections = st.columns(2)
+        with inspector:
+            _inspector(editor, key)
+        with connections:
+            _connections(editor, key)
+
+
+def _validation(editor: EditorAdapter, key: str) -> None:
     st.caption(f"{len(editor.graph.nodes)} nodes | {len(editor.graph.edges)} connections")
     if st.button("Validate graph", key=f"{key}_validate"):
         try:
@@ -372,3 +379,40 @@ def render_editor(editor: EditorAdapter, *, key: str = "editor") -> None:
             st.error(str(error))
         else:
             st.success("Graph is valid, including feedback boundaries. No processing was run.")
+
+
+def _notice(editor: EditorAdapter) -> None:
+    if editor.notice is not None:
+        level, message = editor.notice
+        if level == "error":
+            st.error(message)
+        else:
+            st.success(message)
+
+
+def render_editor(
+    editor: EditorAdapter,
+    *,
+    key: str = "editor",
+    section: Literal["all", "setup", "draft", "node"] = "all",
+) -> None:
+    """Render the editor or one section; accepted edits update the session-owned graph."""
+    if section == "all":
+        with st.sidebar:
+            _palette(editor, key)
+            _policy(editor, key)
+        _canvas(editor, key)
+        _node_controls(editor, key)
+        _validation(editor, key)
+    elif section == "setup":
+        _palette(editor, key)
+        _policy(editor, key)
+        _notice(editor)
+    elif section == "draft":
+        _canvas(editor, key)
+        _validation(editor, key)
+    elif section == "node":
+        _notice(editor)
+        _node_controls(editor, key, stacked=True)
+    else:
+        raise ValueError(f"Unknown editor section: {section}")

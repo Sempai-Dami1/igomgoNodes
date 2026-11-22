@@ -6,11 +6,12 @@ import plotly.graph_objects as go
 import pytest
 import soundfile as sf
 from PIL import Image
+from pydantic import ValidationError
 
 from examples import audio_poc, electronics_poc, image_poc
 from examples.editor_demo import demo_graph, demo_registry
 from examples.gallery import waveform
-from igomgo_nodes.core import Executor
+from igomgo_nodes.core import Executor, GraphPolicy, LoopPolicy
 from igomgo_nodes.core.executor import MAX_CAPTURE_BYTES
 
 
@@ -196,6 +197,59 @@ def test_logic_and_symbolic_consumers_build_and_run() -> None:
     assert result.outputs["output"]["data"] == (
         "Supply (5 V) -> Resistor (1 kOhm) -> LED (symbol only, not simulated)"
     )
+
+
+@pytest.mark.parametrize(("value", "expected"), [(9.0, 3.0), (0.0, 0.0), (16.0, 4.0), (0.01, 0.1)])
+def test_square_root_feedback_runs_bounded_passes_and_returns_estimate(
+    value: float, expected: float
+) -> None:
+    graph, registry = electronics_poc.feedback_demo()
+    source = graph.nodes[0].model_copy(update={"params": {"value": value}})
+    graph = graph.model_copy(update={"nodes": (source, *graph.nodes[1:])})
+    result = Executor().run(
+        graph, registry, feedback_edge_ids=frozenset({electronics_poc.FEEDBACK_EDGE_ID})
+    )
+    assert not result.timed_out
+    assert [snapshot.iteration for snapshot in result.snapshots] == list(range(1, 9))
+    states: list[electronics_poc.SquareRootState] = []
+    for snapshot in result.snapshots:
+        state = snapshot.outputs["sqrt"]["data"]
+        assert isinstance(state, electronics_poc.SquareRootState)
+        states.append(state)
+    if value == 9:
+        assert [state.estimate for state in states[:3]] == pytest.approx(
+            [5.0, 3.4, 3.023529411764706]
+        )
+    assert result.outputs["output"]["estimate"] == pytest.approx(expected, abs=1e-8)
+
+
+@pytest.mark.parametrize("value", [-1, 10001, float("nan"), float("inf")])
+def test_square_root_input_rejects_out_of_range_or_nonfinite_values(value: float) -> None:
+    with pytest.raises(ValidationError):
+        electronics_poc.NumberInput("input", {"value": value})
+
+
+def test_square_root_rejects_a_zero_estimate_for_positive_input() -> None:
+    state = electronics_poc.SquareRootState(9, 0)
+    with pytest.raises(ValueError, match="nonnegative"):
+        electronics_poc.SquareRoot("sqrt").process({"data": [state]})
+
+
+def test_square_root_respects_iteration_limit_for_incomplete_estimates() -> None:
+    graph, registry = electronics_poc.feedback_demo()
+    graph = graph.model_copy(
+        update={
+            "policy": GraphPolicy(
+                allow_feedback=True, loop=LoopPolicy(max_iterations=1, timeout_seconds=10)
+            )
+        }
+    )
+    result = Executor().run(
+        graph, registry, feedback_edge_ids=frozenset({electronics_poc.FEEDBACK_EDGE_ID})
+    )
+    assert not result.timed_out
+    assert len(result.snapshots) == 1
+    assert result.outputs["output"]["estimate"] == 5
 
 
 @pytest.mark.parametrize(

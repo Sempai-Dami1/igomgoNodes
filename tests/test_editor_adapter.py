@@ -93,6 +93,56 @@ def test_audio_wav_nodes_render_distinct_icons(feedback: bool) -> None:
     assert selected.style["border"] == "2px solid red"
 
 
+@pytest.mark.parametrize("feedback", [False, True])
+def test_image_input_and_output_nodes_render_distinct_icons(feedback: bool) -> None:
+    from examples import image_poc
+
+    graph, registry = image_poc.feedback_demo() if feedback else image_poc.demo()
+    editor = EditorAdapter(graph, registry)
+    nodes = {node.id: node for node in editor.flow_state.nodes}
+    icons = [nodes[node_id].style["backgroundImage"] for node_id in ("input", "output")]
+    assert all(icon.startswith('url("data:image/svg+xml,') for icon in icons)
+    assert icons[0] != icons[1]
+    assert nodes["input"].data["content"] == "Image input"
+    assert nodes["output"].data["content"] == "PNG output"
+    editor.select_node("output")
+    selected = next(node for node in editor.flow_state.nodes if node.id == "output")
+    assert selected.style["backgroundImage"] == icons[1]
+    assert selected.style["border"] == "2px solid red"
+
+
+def test_square_root_feedback_icon_remains_visible_when_selected() -> None:
+    from examples import electronics_poc
+
+    graph, registry = electronics_poc.feedback_demo()
+    editor = EditorAdapter(graph, registry)
+    node = next(node for node in editor.flow_state.nodes if node.id == "sqrt")
+    assert node.data["content"] == "Square-root estimator"
+    icon = node.style["backgroundImage"]
+    assert icon.startswith('url("data:image/svg+xml,')
+    editor.select_node("sqrt")
+    node = next(node for node in editor.flow_state.nodes if node.id == "sqrt")
+    assert node.style["backgroundImage"] == icon
+    assert node.style["border"] == "2px solid red"
+
+
+def test_symbolic_electronics_supply_and_led_icons_render_and_preserve_selection() -> None:
+    from examples import electronics_poc
+
+    graph, registry = electronics_poc.demo()
+    editor = EditorAdapter(graph, registry)
+    nodes = {node.id: node for node in editor.flow_state.nodes}
+    icons = [nodes[node_id].style["backgroundImage"] for node_id in ("input", "output")]
+    assert all(icon.startswith('url("data:image/svg+xml,') for icon in icons)
+    assert icons[0] != icons[1]
+    assert nodes["input"].data["content"] == "Supply"
+    assert nodes["output"].data["content"] == "LED"
+    editor.select_node("output")
+    selected = next(node for node in editor.flow_state.nodes if node.id == "output")
+    assert selected.style["backgroundImage"] == icons[1]
+    assert selected.style["border"] == "2px solid red"
+
+
 def test_canvas_selection_highlights_one_item_and_deletion_clears_selection() -> None:
     editor = EditorAdapter(demo_graph(), demo_registry())
     state = deepcopy(editor.flow_state)

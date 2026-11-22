@@ -42,6 +42,8 @@ Status legend: ⬜ not started · 🟨 in progress · ✅ done · ⏸ deferred
 - ✅ Palette, drag/reposition, tap-select + inspector movement, connect/disconnect
   (literal tap-on-canvas placement deferred by agreement; see FUTURE.md)
 - ✅ Inspector panel (Pydantic parameter-schema forms, port details, validated edits)
+- ✅ Optional tablet/desktop focus mode with Setup, Draft, Node, and Graph tabs;
+  original layout remains the default
 - 🟨 Red node/connection selection and on-screen deletion implemented; visual canvas check pending.
   Keyboard Delete deferred.
 - ✅ Consumer-schema settings for per-instance incoming-edge limits and direct self-loop modes,
@@ -63,6 +65,8 @@ Status legend: ⬜ not started · 🟨 in progress · ✅ done · ⏸ deferred
   with a built-in loopback icon, in-memory iteration review and adjustable browser playback;
   MP4 deferred
 - ✅ Electronic components: symbolic nodes (no simulation)
+- ✅ Electronics feedback: bounded numerical square-root example with iteration review
+  and an illustrative op-amp/multiplier feedback icon (not a circuit simulator)
 - ✅ Gallery execution and decoded-input caching; runtime payloads separate from graph JSON;
   graph/input changes invalidate displayed results; consumer/media errors shown explicitly
 - ⏸ Manual graph-wide tap/click iteration stepping recorded in FUTURE.md
