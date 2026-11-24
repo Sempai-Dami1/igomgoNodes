@@ -204,6 +204,26 @@ def test_canvas_selection_highlights_one_item_and_deletion_clears_selection() ->
     assert len(editor.graph.edges) == 1
 
 
+def test_canvas_selection_update_is_newer_than_browser_clock() -> None:
+    editor = EditorAdapter(demo_graph(), demo_registry())
+    state = deepcopy(editor.flow_state)
+    state.timestamp += 3_600_000
+    state.selected_id = "stage"
+    editor.accept_canvas(state)
+
+    assert editor.flow_state.timestamp > state.timestamp
+    assert editor.flow_state.nodes[1].style["border"] == "2px solid red"
+
+    state = deepcopy(editor.flow_state)
+    state.timestamp += 3_600_000
+    state.selected_id = state.edges[0].id
+    editor.accept_canvas(state)
+
+    assert editor.flow_state.timestamp > state.timestamp
+    assert editor.flow_state.edges[0].style["stroke"] == "red"
+    assert "border" not in editor.flow_state.nodes[1].style
+
+
 def test_canvas_distinguishes_node_and_edge_with_the_same_id() -> None:
     graph = demo_graph()
     edge = graph.edges[0].model_copy(update={"edge_id": "stage"})

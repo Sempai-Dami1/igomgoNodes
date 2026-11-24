@@ -602,3 +602,5 @@ class EditorAdapter:
             self.refresh_canvas()
         elif previous_selection != (self.selected_id, self.selected_edge_id):
             self.flow_state = self._to_flow()
+            # The component rejects updates older than its browser-side event timestamp.
+            self.flow_state.timestamp = max(self.flow_state.timestamp, state.timestamp + 1)
