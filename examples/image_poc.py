@@ -94,7 +94,7 @@ class ImageInput(BaseNode):
 
 
 class Grayscale(BaseNode):
-    spec = _spec("grayscale", "Grayscale")
+    spec = _spec("grayscale", "Grayscale", icon="image-grayscale")
 
     def process(self, inputs: Mapping[str, object]) -> dict[str, object]:
         image = ImageOps.grayscale(Image.fromarray(_image(inputs))).convert("RGB")
@@ -107,7 +107,7 @@ class BlurParams(BaseModel):
 
 
 class Blur(BaseNode):
-    spec = _spec("blur", "Blur")
+    spec = _spec("blur", "Blur", icon="image-blur")
     parameter_model = BlurParams
 
     def process(self, inputs: Mapping[str, object]) -> dict[str, object]:
@@ -139,7 +139,7 @@ class FeedbackBlur(Blur):
 
 
 class Invert(BaseNode):
-    spec = _spec("invert", "Invert")
+    spec = _spec("invert", "Invert", icon="image-invert")
 
     def process(self, inputs: Mapping[str, object]) -> dict[str, object]:
         return {"data": 255 - _image(inputs)}

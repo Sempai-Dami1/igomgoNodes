@@ -9,9 +9,20 @@ from streamlit.testing.v1 import AppTest
 from streamlit.testing.v1.element_tree import Button, FileUploader, Selectbox
 
 from examples import audio_poc, electronics_poc, image_poc
+from examples import workspace as workspace_module
 from examples.editor_demo import demo_graph
 from igomgo_nodes.core import Graph
 from igomgo_nodes.storage import BrowserFileStore
+
+
+@pytest.fixture(autouse=True)
+def browser_workspace(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        workspace_module,
+        "_READER",
+        lambda **kwargs: {"loaded": {"enabled": True, "workspace": None, "error": None}},
+    )
+    monkeypatch.setattr(workspace_module, "_WRITER", lambda **kwargs: {"status": None})
 
 
 def test_app_renders_without_errors() -> None:
@@ -63,6 +74,62 @@ def test_header_popovers_and_links_remain_available_in_focus_mode() -> None:
         "1FAIpQLSf6Ixq_xBFYUaL8hd5lduzqHdtV32SD3RVRPb3vqGsHkwNxqg/"
         "viewform?usp=publish-editor"
     )
+
+
+def test_remembered_workspace_restores_graph_and_preferences(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = demo_graph()
+    graph = graph.model_copy(
+        update={
+            "nodes": (
+                graph.nodes[0].model_copy(update={"params": {"value": False}}),
+                *graph.nodes[1:],
+            )
+        }
+    )
+    payload = workspace_module.Workspace(
+        focus=True,
+        example="Logic",
+        tab="Draft",
+        graphs={"Logic": BrowserFileStore().serialize(graph).decode("utf-8")},
+    ).model_dump_json()
+    monkeypatch.setattr(
+        workspace_module,
+        "_READER",
+        lambda **kwargs: {"loaded": {"enabled": True, "workspace": payload, "error": None}},
+    )
+    at = AppTest.from_file("../app.py", default_timeout=30).run()
+    assert not at.exception
+    assert at.toggle[0].value
+    assert at.toggle[1].value
+    assert at.session_state["focus_tab"] == "Canvas"
+    assert at.session_state["editor"].graph == graph
+
+
+def test_disabling_remember_workspace_requests_removal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    writes: list[bool] = []
+
+    def writer(**kwargs: object) -> dict[str, object]:
+        data = kwargs["data"]
+        assert isinstance(data, dict)
+        writes.append(data["enabled"])
+        return {"status": None}
+
+    monkeypatch.setattr(workspace_module, "_WRITER", writer)
+    at = AppTest.from_file("../app.py", default_timeout=30).run()
+    at.toggle[1].set_value(False).run()
+    assert not at.exception
+    assert writes[-1] is False
+
+
+def test_invalid_saved_workspace_does_not_replace_graph() -> None:
+    with pytest.raises(ValueError, match="unknown example"):
+        workspace_module._restore(
+            '{"version":1,"focus":true,"example":"Unknown","tab":"Setup","graphs":{}}'
+        )
 
 
 def _button(at: AppTest, label: str) -> Button:
@@ -126,6 +193,40 @@ def test_ui_deletes_the_canvas_selected_connection() -> None:
     assert not at.exception
     assert any("Selected connection:" in caption.value for caption in at.caption)
     _button(at, "Delete selected connection").click().run()
+    assert not at.exception
+    assert {edge.edge_id for edge in editor.graph.edges} == {"in-stage"}
+    assert editor.selected_edge_id is None
+
+
+def test_focus_canvas_deletes_selected_node() -> None:
+    at = AppTest.from_file("../app.py", default_timeout=30).run()
+    at.toggle[0].set_value(True).run()
+    at.session_state["focus_tab"] = "Canvas"
+    at.run()
+    editor = at.session_state["editor"]
+    editor.select_node("stage")
+    at.run()
+
+    _button(at, "Delete Selected Node").click().run()
+
+    assert not at.exception
+    assert {node.node_id for node in editor.graph.nodes} == {"in", "out"}
+    assert editor.selected_id is None
+
+
+def test_focus_canvas_deletes_selected_connection() -> None:
+    at = AppTest.from_file("../app.py", default_timeout=30).run()
+    at.toggle[0].set_value(True).run()
+    at.session_state["focus_tab"] = "Canvas"
+    at.run()
+    editor = at.session_state["editor"]
+    state = deepcopy(editor.flow_state)
+    state.selected_id = state.edges[1].id
+    editor.accept_canvas(state)
+    at.run()
+
+    _button(at, "Delete Selected Connection").click().run()
+
     assert not at.exception
     assert {edge.edge_id for edge in editor.graph.edges} == {"in-stage"}
     assert editor.selected_edge_id is None
@@ -340,12 +441,12 @@ def test_graph_file_download_and_import_restore_graph_transactionally() -> None:
 def test_focus_mode_keeps_editor_and_invalidates_results_across_tabs() -> None:
     at = AppTest.from_file("../app.py", default_timeout=30).run()
     at.toggle[0].set_value(True).run()
-    assert [tab.label for tab in at.tabs] == ["Setup", "Draft", "Node", "Graph"]
+    assert [tab.label for tab in at.tabs] == ["Setup", "Canvas", "Node", "Graph"]
     _button(at, "Add node").click().run()
     editor = at.session_state["editor"]
     node_id = editor.selected_id
 
-    at.session_state["focus_tab"] = "Draft"
+    at.session_state["focus_tab"] = "Canvas"
     at.run()
     assert not at.exception
     assert _button(at, "Validate graph")
@@ -400,7 +501,7 @@ def test_focus_mode_preserves_uploads_and_imported_graph_across_navigation() -> 
     assert any(message.value == "Run complete." for message in at.success)
     assert len(at.get("image")) == 2
 
-    at.session_state["focus_tab"] = "Draft"
+    at.session_state["focus_tab"] = "Canvas"
     at.run()
     assert _file_uploader(at, "Image input").value.getvalue() == data
     assert editor.node("blur").params["radius"] == 2

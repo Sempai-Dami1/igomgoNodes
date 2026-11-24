@@ -62,6 +62,48 @@ _WAV_OUTPUT_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72
 <path d="M110 39h20l7 7v17h-27z" fill="#30495a" stroke="#9bb6c3" stroke-width="2"/>
 <path d="M130 39v7h7m-22 5h16m-16 5h16" fill="none" stroke="#9bb6c3" stroke-width="2"/>
 </svg>"""
+_AUDIO_GAIN_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<rect x="10" y="20" width="44" height="32" rx="4" fill="#30495a"/>
+<path d="M14 36h4l3-4 4 8 4-7 4 6 4-3h5" fill="none" stroke="#9bb6c3"
+ stroke-width="2" stroke-linejoin="round"/>
+<path d="M57 36h13m-5-5 5 5-5 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<path d="M78 52V20l39 16z" fill="#30495a" stroke="#6ac694" stroke-width="2"/>
+<text x="91" y="39" text-anchor="middle" fill="#9bb6c3" font-family="sans-serif"
+ font-size="10">+</text>
+<path d="M87 44h8" stroke="#9bb6c3" stroke-width="1.5"/>
+<path d="M118 36h10m-5-5 5 5-5 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<rect x="132" y="20" width="38" height="32" rx="4" fill="#30495a"/>
+<path d="M136 36h3l4-11 5 22 5-27 5 28 5-14 3 2h2" fill="none" stroke="#ec7da7"
+ stroke-width="2" stroke-linejoin="round"/>
+</svg>"""
+_AUDIO_LOWPASS_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<rect x="10" y="20" width="46" height="32" rx="4" fill="#30495a"/>
+<path d="M13 36h3l3-10 4 20 4-20 4 20 4-20 4 20 4-10h5" fill="none"
+ stroke="#ec7da7" stroke-width="2" stroke-linejoin="round"/>
+<path d="M58 36h13m-5-5 5 5-5 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<rect x="74" y="16" width="42" height="40" rx="4" fill="#30495a" stroke="#9bb6c3"/>
+<path d="M82 48V24m0 24h27M84 28c6 0 8 1 11 5s5 10 12 11"
+ fill="none" stroke="#6ac694" stroke-width="2"/>
+<path d="M118 36h10m-5-5 5 5-5 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<rect x="132" y="20" width="38" height="32" rx="4" fill="#30495a"/>
+<path d="M136 36h3l4-8 5 16 5-13 5 10 5-6 3 1h2" fill="none" stroke="#6ac694"
+ stroke-width="2" stroke-linejoin="round"/>
+</svg>"""
+_AUDIO_DELAY_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<rect x="10" y="19" width="40" height="34" rx="4" fill="#30495a"/>
+<path d="M14 36h4l3-10 5 20 5-24 5 25 4-12 3 1h3" fill="none" stroke="#ec7da7"
+ stroke-width="2" stroke-linejoin="round"/>
+<path d="M51 36h11m-5-5 5 5-5 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<rect x="64" y="23" width="36" height="26" rx="4" fill="#30495a" stroke="#9bb6c3"/>
+<path d="M70 36h5l4-7 5 14 5-14 5 7h3" fill="none" stroke="#6ac694" stroke-width="2"/>
+<path d="M101 36h10m-5-5 5 5-5 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<path d="M113 36h5l4-7 5 14 5-14 5 7h3m-22 0h5l4-5 5 10 5-10 5 5h3"
+ fill="none" stroke="#ec7da7" stroke-width="2" stroke-linejoin="round"/>
+<path d="M89 50v11H27V54m-4 4 4-4 4 4" fill="none" stroke="#5dd8cb" stroke-width="1.5"/>
+</svg>"""
 _IMAGE_INPUT_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
 <rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
 <path d="M22 14h27l10 10v34H22z" fill="#30495a" stroke="#9bb6c3" stroke-width="2"/>
@@ -83,6 +125,112 @@ _IMAGE_OUTPUT_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 
 <path d="M113 28l7-7 5 4 5-5 9 8z" fill="#6ac694"/>
 <path d="M110 39h20l7 7v17h-27z" fill="#30495a" stroke="#9bb6c3" stroke-width="2"/>
 <path d="M130 39v7h7m-22 5h16m-16 5h16" fill="none" stroke="#9bb6c3" stroke-width="2"/>
+</svg>"""
+_IMAGE_GRAYSCALE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<rect x="10" y="20" width="42" height="32" rx="3" fill="#30495a"/>
+<path d="M14 24h10v10H14z" fill="#ec7da7"/><path d="M25 24h11v10H25z" fill="#6ac694"/>
+<path d="M37 24h11v10H37z" fill="#5dd8cb"/><path d="M14 35h10v13H14z" fill="#6ac694"/>
+<path d="M25 35h11v13H25z" fill="#5dd8cb"/><path d="M37 35h11v13H37z" fill="#ec7da7"/>
+<path d="M55 36h27m-6-5 6 5-6 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<path d="M91 36h7m-4-4 4 4-4 4" fill="none" stroke="#9bb6c3" stroke-width="2"/>
+<rect x="106" y="20" width="42" height="32" rx="3" fill="#30495a"/>
+<path d="M110 24h10v10h-10z" fill="#d9e0e3"/><path d="M121 24h11v10h-11z" fill="#9bb6c3"/>
+<path d="M133 24h11v10h-11z" fill="#52616a"/><path d="M110 35h10v13h-10z" fill="#9bb6c3"/>
+<path d="M121 35h11v13h-11z" fill="#52616a"/><path d="M133 35h11v13h-11z" fill="#d9e0e3"/>
+</svg>"""
+_IMAGE_BLUR_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<rect x="10" y="20" width="40" height="32" rx="3" fill="#30495a"/>
+<path d="M13 23h12v12H13zM26 23h11v12H26zM38 23h9v12h-9zM13 36h12v13H13z"
+ fill="#ec7da7"/>
+<path d="M26 36h11v13H26zM38 36h9v13h-9z" fill="#6ac694"/>
+<path d="M53 36h13m-5-5 5 5-5 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<circle cx="87" cy="36" r="18" fill="#30495a" stroke="#9bb6c3" stroke-width="2"/>
+<circle cx="87" cy="36" r="11" fill="#6ac694" opacity=".55"/>
+<circle cx="87" cy="36" r="5" fill="#ec7da7" opacity=".8"/>
+<path d="M107 36h13m-5-5 5 5-5 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<rect x="126" y="20" width="44" height="32" rx="3" fill="#30495a"/>
+<circle cx="141" cy="34" r="10" fill="#ec7da7" opacity=".7"/>
+<circle cx="155" cy="39" r="10" fill="#6ac694" opacity=".65"/>
+</svg>"""
+_IMAGE_INVERT_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<rect x="10" y="20" width="40" height="32" rx="3" fill="#30495a"/>
+<path d="M13 23h11v13H13z" fill="#ec7da7"/><path d="M25 23h10v13H25z" fill="#6ac694"/>
+<path d="M36 23h11v13H36z" fill="#5dd8cb"/><path d="M13 37h11v12H13z" fill="#6ac694"/>
+<path d="M25 37h10v12H25z" fill="#5dd8cb"/><path d="M36 37h11v12H36z" fill="#ec7da7"/>
+<path d="M53 36h13m-5-5 5 5-5 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<circle cx="88" cy="36" r="17" fill="#30495a" stroke="#9bb6c3" stroke-width="2"/>
+<path d="M88 19a17 17 0 0 0 0 34z" fill="#ec7da7"/>
+<path d="M88 19a17 17 0 0 1 0 34z" fill="#6ac694"/>
+<path d="M108 36h12m-5-5 5 5-5 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<rect x="126" y="20" width="44" height="32" rx="3" fill="#30495a"/>
+<path d="M129 23h11v13h-11z" fill="#13a058"/><path d="M141 23h10v13h-10z" fill="#9e684c"/>
+<path d="M152 23h15v13h-15z" fill="#a22a47"/><path d="M129 37h11v12h-11z" fill="#9e684c"/>
+<path d="M141 37h10v12h-10z" fill="#a22a47"/><path d="M152 37h15v12h-15z" fill="#13a058"/>
+</svg>"""
+_LOGIC_INPUT_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<text x="24" y="26" text-anchor="middle" fill="#9bb6c3" font-family="sans-serif"
+ font-size="10">0</text>
+<text x="54" y="26" text-anchor="middle" fill="#9bb6c3" font-family="sans-serif"
+ font-size="10">1</text>
+<path d="M14 41h18m12 0h19" fill="none" stroke="#9bb6c3" stroke-width="2"/>
+<rect x="29" y="33" width="18" height="16" rx="8" fill="#30495a" stroke="#5dd8cb"
+ stroke-width="2"/>
+<circle cx="40" cy="41" r="5" fill="#6ac694"/>
+<path d="M64 41h29m-6-5 6 5-6 5M98 41h39" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<circle cx="145" cy="41" r="8" fill="#6ac694"/>
+</svg>"""
+_LOGIC_NOT_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<path d="M16 36h45m-7-5 7 5-7 5" fill="none" stroke="#9bb6c3" stroke-width="2"/>
+<path d="M65 19v34l44-17z" fill="#30495a" stroke="#6ac694" stroke-width="2"/>
+<circle cx="117" cy="36" r="7" fill="#192633" stroke="#ec7da7" stroke-width="2"/>
+<path d="M124 36h37m-7-5 7 5-7 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+</svg>"""
+_LOGIC_AND_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<path d="M14 27h48m-7-5 7 5-7 5M14 45h48m-7-5 7 5-7 5"
+ fill="none" stroke="#9bb6c3" stroke-width="2"/>
+<path d="M67 18h25a18 18 0 0 1 0 36H67z" fill="#30495a" stroke="#6ac694" stroke-width="2"/>
+<path d="M110 36h49m-7-5 7 5-7 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+</svg>"""
+_LOGIC_OR_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<path d="M13 26c19 0 29 3 48 10-19 7-29 10-48 10m0-20 8 10-8 10"
+ fill="none" stroke="#9bb6c3" stroke-width="2"/>
+<path d="M63 18c20 0 31 5 48 18-17 13-28 18-48 18 10-12 10-24 0-36z"
+ fill="#30495a" stroke="#6ac694" stroke-width="2"/>
+<path d="M111 36h48m-7-5 7 5-7 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+</svg>"""
+_LOGIC_XOR_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<path d="M7 18c10 12 10 24 0 36M17 26c19 0 29 3 48 10-19 7-29 10-48 10m0-20 8 10-8 10"
+ fill="none" stroke="#9bb6c3" stroke-width="2"/>
+<path d="M67 18c20 0 31 5 48 18-17 13-28 18-48 18 10-12 10-24 0-36z"
+ fill="#30495a" stroke="#6ac694" stroke-width="2"/>
+<path d="M115 36h44m-7-5 7 5-7 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+</svg>"""
+_LOGIC_OUTPUT_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<path d="M17 36h37m-7-5 7 5-7 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<circle cx="91" cy="36" r="24" fill="#30495a" stroke="#9bb6c3" stroke-width="2"/>
+<path d="M82 34a9 9 0 1 1 18 0c0 4-3 5-3 9h-12c0-4-3-5-3-9z"
+ fill="#6ac694" stroke="#5dd8cb" stroke-width="1.5"/>
+<path d="M85 47h12m-10 4h8M117 36h45m-7-5 7 5-7 5"
+ fill="none" stroke="#9bb6c3" stroke-width="2"/>
+</svg>"""
+_LOGIC_FEEDBACK_NOT_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<path d="M14 28h36m-7-5 7 5-7 5" fill="none" stroke="#9bb6c3" stroke-width="2"/>
+<path d="M53 17v22l29-11z" fill="#30495a" stroke="#6ac694" stroke-width="2"/>
+<circle cx="88" cy="28" r="6" fill="#192633" stroke="#ec7da7" stroke-width="2"/>
+<path d="M94 28h34m-7-5 7 5-7 5M128 28v31H31V34"
+ fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<path d="M27 39l4-5 4 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<circle cx="128" cy="28" r="2" fill="#5dd8cb"/>
 </svg>"""
 _SQUARE_ROOT_FEEDBACK_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
 <rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
@@ -120,16 +268,61 @@ _ELECTRONICS_LED_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1
 <path d="M102 20l9-8m-1 5 1-5-5 1M112 26l9-8m-1 5 1-5-5 1"
  fill="none" stroke="#ec7da7" stroke-width="2" stroke-linecap="round"/>
 </svg>"""
+_ELECTRONICS_RESISTOR_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<path d="M12 36h34m88 0h34" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<rect x="46" y="21" width="88" height="30" rx="4" fill="#30495a" stroke="#9bb6c3"
+ stroke-width="2"/>
+<path d="M52 36h8l6-9 10 18 10-18 10 18 10-18 10 18 8-9h4"
+ fill="none" stroke="#ec7da7" stroke-width="2.5" stroke-linejoin="round"/>
+<circle cx="12" cy="36" r="2" fill="#9bb6c3"/><circle cx="168" cy="36" r="2" fill="#9bb6c3"/>
+</svg>"""
+_ELECTRONICS_NUMBER_INPUT_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<path d="M15 36h26m-6-5 6 5-6 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<rect x="45" y="15" width="84" height="42" rx="5" fill="#30495a" stroke="#9bb6c3"
+ stroke-width="2"/>
+<text x="87" y="43" text-anchor="middle" fill="#6ac694" font-family="monospace"
+ font-size="24">9</text>
+<path d="M129 36h37m-7-5 7 5-7 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+</svg>"""
+_ELECTRONICS_SQRT_OUTPUT_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 72">
+<rect x="1" y="1" width="178" height="70" rx="8" fill="#192633" stroke="#4c6575"/>
+<path d="M14 38h9l5 11 11-27h22" fill="none" stroke="#6ac694" stroke-width="3"
+ stroke-linejoin="round"/>
+<path d="M66 36h19m-6-5 6 5-6 5" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+<rect x="90" y="17" width="66" height="38" rx="4" fill="#30495a" stroke="#9bb6c3"
+ stroke-width="2"/>
+<text x="123" y="42" text-anchor="middle" fill="#ec7da7" font-family="monospace"
+ font-size="18">3.0</text>
+<path d="M158 36h12" fill="none" stroke="#5dd8cb" stroke-width="2"/>
+</svg>"""
 _BUILTIN_ICONS = {
     "feedback-blur": f'url("data:image/svg+xml,{quote(_FEEDBACK_BLUR_SVG)}")',
     "feedback-echo": f'url("data:image/svg+xml,{quote(_FEEDBACK_ECHO_SVG)}")',
     "wav-input": f'url("data:image/svg+xml,{quote(_WAV_INPUT_SVG)}")',
     "wav-output": f'url("data:image/svg+xml,{quote(_WAV_OUTPUT_SVG)}")',
+    "audio-gain": f'url("data:image/svg+xml,{quote(_AUDIO_GAIN_SVG)}")',
+    "audio-lowpass": f'url("data:image/svg+xml,{quote(_AUDIO_LOWPASS_SVG)}")',
+    "audio-delay": f'url("data:image/svg+xml,{quote(_AUDIO_DELAY_SVG)}")',
     "image-input": f'url("data:image/svg+xml,{quote(_IMAGE_INPUT_SVG)}")',
     "image-output": f'url("data:image/svg+xml,{quote(_IMAGE_OUTPUT_SVG)}")',
+    "image-grayscale": f'url("data:image/svg+xml,{quote(_IMAGE_GRAYSCALE_SVG)}")',
+    "image-blur": f'url("data:image/svg+xml,{quote(_IMAGE_BLUR_SVG)}")',
+    "image-invert": f'url("data:image/svg+xml,{quote(_IMAGE_INVERT_SVG)}")',
+    "logic-input": f'url("data:image/svg+xml,{quote(_LOGIC_INPUT_SVG)}")',
+    "logic-not": f'url("data:image/svg+xml,{quote(_LOGIC_NOT_SVG)}")',
+    "logic-and": f'url("data:image/svg+xml,{quote(_LOGIC_AND_SVG)}")',
+    "logic-or": f'url("data:image/svg+xml,{quote(_LOGIC_OR_SVG)}")',
+    "logic-xor": f'url("data:image/svg+xml,{quote(_LOGIC_XOR_SVG)}")',
+    "logic-output": f'url("data:image/svg+xml,{quote(_LOGIC_OUTPUT_SVG)}")',
+    "logic-feedback-not": f'url("data:image/svg+xml,{quote(_LOGIC_FEEDBACK_NOT_SVG)}")',
     "square-root-feedback": f'url("data:image/svg+xml,{quote(_SQUARE_ROOT_FEEDBACK_SVG)}")',
     "electronics-supply": f'url("data:image/svg+xml,{quote(_ELECTRONICS_SUPPLY_SVG)}")',
     "electronics-led": f'url("data:image/svg+xml,{quote(_ELECTRONICS_LED_SVG)}")',
+    "electronics-resistor": f'url("data:image/svg+xml,{quote(_ELECTRONICS_RESISTOR_SVG)}")',
+    "electronics-number-input": f'url("data:image/svg+xml,{quote(_ELECTRONICS_NUMBER_INPUT_SVG)}")',
+    "electronics-sqrt-output": f'url("data:image/svg+xml,{quote(_ELECTRONICS_SQRT_OUTPUT_SVG)}")',
 }
 
 

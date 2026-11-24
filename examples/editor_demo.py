@@ -27,6 +27,7 @@ class Constant(BaseNode):
     spec = NodeSpec(
         type_id="logic.constant",
         title="Boolean input",
+        icon="logic-input",
         category="Logic",
         outputs=(PortSpec(name="value", dtype="bool", max_connections=None),),
     )
@@ -39,6 +40,7 @@ class Not(BaseNode):
     spec = NodeSpec(
         type_id="logic.not",
         title="NOT",
+        icon="logic-not",
         category="Logic",
         inputs=(PortSpec(name="value", dtype="bool", min_connections=1),),
         outputs=(PortSpec(name="value", dtype="bool", max_connections=None),),
@@ -52,6 +54,7 @@ class And(BaseNode):
     spec = NodeSpec(
         type_id="logic.and",
         title="AND",
+        icon="logic-and",
         category="Logic",
         inputs=tuple(PortSpec(name=name, dtype="bool", min_connections=1) for name in ("a", "b")),
         outputs=(PortSpec(name="value", dtype="bool", max_connections=None),),
@@ -65,6 +68,7 @@ class Display(BaseNode):
     spec = NodeSpec(
         type_id="logic.display",
         title="Output",
+        icon="logic-output",
         category="Logic",
         inputs=(PortSpec(name="value", dtype="bool", min_connections=1),),
         outputs=(PortSpec(name="value", dtype="bool", max_connections=None),),
@@ -75,14 +79,14 @@ class Display(BaseNode):
 
 
 class Or(And):
-    spec = And.spec.model_copy(update={"type_id": "logic.or", "title": "OR"})
+    spec = And.spec.model_copy(update={"type_id": "logic.or", "title": "OR", "icon": "logic-or"})
 
     def process(self, inputs: Mapping[str, object]) -> dict[str, object]:
         return {"value": bool(inputs["a"]) or bool(inputs["b"])}
 
 
 class Xor(And):
-    spec = And.spec.model_copy(update={"type_id": "logic.xor", "title": "XOR"})
+    spec = And.spec.model_copy(update={"type_id": "logic.xor", "title": "XOR", "icon": "logic-xor"})
 
     def process(self, inputs: Mapping[str, object]) -> dict[str, object]:
         return {"value": bool(inputs["a"]) != bool(inputs["b"])}
@@ -102,6 +106,7 @@ class FeedbackNot(BaseNode):
     spec = NodeSpec(
         type_id="logic.feedback_not",
         title="Configurable feedback NOT",
+        icon="logic-feedback-not",
         category="Logic",
         inputs=(PortSpec(name="value", dtype="bool", max_connections=None),),
         outputs=(PortSpec(name="value", dtype="bool", max_connections=None),),

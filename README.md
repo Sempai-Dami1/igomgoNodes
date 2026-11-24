@@ -137,10 +137,11 @@ The **About**, **Help**, and **Feedback** popovers provide app information, basi
 instructions, and a link to the hosted feedback form.
 
 For tablet or desktop use, turn on **Focus mode** in the header. **Setup** contains
-example selection, files, palette, and policy; **Draft** contains the canvas and
-validation; **Node** contains the inspector and connections; **Graph** contains the
-input preview, run button, and output. Collapse the sidebar for more room. Turn focus
-mode off to return to the original layout without losing the current graph or uploads.
+example selection, files, palette, and policy; **Canvas** contains the graph, selected
+node/connection delete buttons, and validation; **Node** contains the inspector and
+connections; **Graph** contains the input preview, run button, and output. Collapse the
+sidebar for more room. Turn focus mode off to return to the original layout without
+losing the current graph or uploads.
 
 Use **Download graph** and **Load graph** in the sidebar (or Setup in focus mode) to
 save or restore the editor state on your own computer. The versioned editor file contains

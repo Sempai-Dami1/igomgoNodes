@@ -324,9 +324,12 @@ def _connections(editor: EditorAdapter, key: str) -> None:
                 )
 
 
-def _canvas(editor: EditorAdapter, key: str) -> None:
+def _canvas(editor: EditorAdapter, key: str, *, selection_controls: bool = False) -> None:
     notice = st.empty()
-    st.caption("Select a node or connection, then use its on-screen delete button.")
+    if selection_controls:
+        st.caption("Select a node or connection, then use the matching delete button below.")
+    else:
+        st.caption("Select a node or connection to inspect it.")
     revision = editor.revision
     selection = (editor.selected_id, editor.selected_edge_id)
     state = streamlit_flow(
@@ -352,6 +355,38 @@ def _canvas(editor: EditorAdapter, key: str) -> None:
             notice.error(message)
         else:
             notice.success(message)
+    if selection_controls:
+        selected_node_id = editor.selected_id
+        selected_edge_id = editor.selected_edge_id
+        node_button, connection_button = st.columns(2)
+        with node_button:
+            if (
+                st.button(
+                    "Delete Selected Node",
+                    key=f"{key}_canvas_delete_node",
+                    disabled=selected_node_id is None,
+                )
+                and selected_node_id is not None
+            ):
+                _action(
+                    editor,
+                    lambda: editor.remove_node(selected_node_id),
+                    "Node and attached edges deleted.",
+                )
+        with connection_button:
+            if (
+                st.button(
+                    "Delete Selected Connection",
+                    key=f"{key}_canvas_delete_connection",
+                    disabled=selected_edge_id is None,
+                )
+                and selected_edge_id is not None
+            ):
+                _action(
+                    editor,
+                    lambda: editor.disconnect(selected_edge_id),
+                    "Connection removed.",
+                )
 
 
 def _node_controls(editor: EditorAdapter, key: str, *, stacked: bool = False) -> None:
@@ -394,7 +429,7 @@ def render_editor(
     editor: EditorAdapter,
     *,
     key: str = "editor",
-    section: Literal["all", "setup", "draft", "node"] = "all",
+    section: Literal["all", "setup", "canvas", "node"] = "all",
 ) -> None:
     """Render the editor or one section; accepted edits update the session-owned graph."""
     if section == "all":
@@ -408,8 +443,8 @@ def render_editor(
         _palette(editor, key)
         _policy(editor, key)
         _notice(editor)
-    elif section == "draft":
-        _canvas(editor, key)
+    elif section == "canvas":
+        _canvas(editor, key, selection_controls=True)
         _validation(editor, key)
     elif section == "node":
         _notice(editor)

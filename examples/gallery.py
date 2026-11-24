@@ -28,6 +28,20 @@ from . import audio_poc, electronics_poc, image_poc
 from .editor_demo import demo_graph, demo_registry
 
 BROWSER_STORE = BrowserFileStore()
+EXAMPLES = (
+    "Logic",
+    "Audio",
+    "Audio feedback",
+    "Image",
+    "Image feedback",
+    "Electronics",
+    "Electronics feedback",
+)
+
+
+def editor_key_for(name: str) -> str:
+    return "editor" if name == "Logic" else f"editor_{name.lower().replace(' ', '_')}"
+
 
 _FRAME_PLAYER = component_v2(
     "igomgo_image_feedback_player",
@@ -356,18 +370,10 @@ def _show_result(name: str, result: RunResult) -> None:
 def _setup() -> tuple[str, str, EditorAdapter, bytes, bool]:
     name = st.selectbox(
         "Example",
-        (
-            "Logic",
-            "Audio",
-            "Audio feedback",
-            "Image",
-            "Image feedback",
-            "Electronics",
-            "Electronics feedback",
-        ),
+        EXAMPLES,
         key="gallery_example",
     )
-    editor_key = "editor" if name == "Logic" else f"editor_{name.lower().replace(' ', '_')}"
+    editor_key = editor_key_for(name)
     if editor_key not in st.session_state:
         graph, registry = example_graph(name)
         editor = EditorAdapter(graph, registry)
@@ -470,7 +476,7 @@ def _output(name: str, editor_key: str, editor: EditorAdapter, data: bytes) -> N
 def render_gallery(*, focus: bool) -> None:
     if focus:
         setup, draft, node, graph = st.tabs(
-            ["Setup", "Draft", "Node", "Graph"], key="focus_tab", on_change="rerun"
+            ["Setup", "Canvas", "Node", "Graph"], key="focus_tab", on_change="rerun"
         )
         # Upload widgets remain mounted so Streamlit retains their files across tabs.
         with setup:
@@ -478,7 +484,7 @@ def render_gallery(*, focus: bool) -> None:
             render_editor(editor, key=editor_key, section="setup")
         if draft.open:
             with draft:
-                render_editor(editor, key=editor_key, section="draft")
+                render_editor(editor, key=editor_key, section="canvas")
         if node.open:
             with node:
                 render_editor(editor, key=editor_key, section="node")

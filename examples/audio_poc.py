@@ -107,7 +107,7 @@ class GainParams(BaseModel):
 
 
 class Gain(BaseNode):
-    spec = _spec("gain", "Gain")
+    spec = _spec("gain", "Gain", icon="audio-gain")
     parameter_model = GainParams
 
     def process(self, inputs: Mapping[str, object]) -> dict[str, object]:
@@ -122,7 +122,7 @@ class LowPassParams(BaseModel):
 
 
 class LowPass(BaseNode):
-    spec = _spec("lowpass", "Low-pass")
+    spec = _spec("lowpass", "Low-pass", icon="audio-lowpass")
     parameter_model = LowPassParams
 
     def process(self, inputs: Mapping[str, object]) -> dict[str, object]:
@@ -142,7 +142,7 @@ class DelayParams(BaseModel):
 
 
 class Delay(BaseNode):
-    spec = _spec("delay", "Additive feedback delay")
+    spec = _spec("delay", "Additive feedback delay", icon="audio-delay")
     parameter_model = DelayParams
 
     def process(self, inputs: Mapping[str, object]) -> dict[str, object]:

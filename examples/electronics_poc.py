@@ -53,6 +53,7 @@ class Resistor(BaseNode):
     spec = NodeSpec(
         type_id="electronics.resistor",
         title="Resistor",
+        icon="electronics-resistor",
         category="Symbolic electronics",
         inputs=(PortSpec(name="data", dtype="symbolic", min_connections=1),),
         outputs=(PortSpec(name="data", dtype="symbolic"),),
@@ -118,6 +119,7 @@ class NumberInput(BaseNode):
     spec = NodeSpec(
         type_id="electronics.number_input",
         title="Number input",
+        icon="electronics-number-input",
         category="Electronics feedback",
         outputs=(PortSpec(name="data", dtype="sqrt-state"),),
     )
@@ -157,6 +159,7 @@ class SquareRootOutput(BaseNode):
     spec = NodeSpec(
         type_id="electronics.sqrt_output",
         title="Square-root result",
+        icon="electronics-sqrt-output",
         category="Electronics feedback",
         inputs=(PortSpec(name="data", dtype="sqrt-state", min_connections=1),),
         outputs=(PortSpec(name="estimate", dtype="number"),),

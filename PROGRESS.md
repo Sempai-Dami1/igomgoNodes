@@ -42,10 +42,10 @@ Status legend: ⬜ not started · 🟨 in progress · ✅ done · ⏸ deferred
 - ✅ Palette, drag/reposition, tap-select + inspector movement, connect/disconnect
   (literal tap-on-canvas placement deferred by agreement; see FUTURE.md)
 - ✅ Inspector panel (Pydantic parameter-schema forms, port details, validated edits)
-- ✅ Optional tablet/desktop focus mode with Setup, Draft, Node, and Graph tabs;
+- ✅ Optional tablet/desktop focus mode with Setup, Canvas, Node, and Graph tabs;
   original layout remains the default
-- 🟨 Red node/connection selection and on-screen deletion implemented; visual canvas check pending.
-  Keyboard Delete deferred.
+- 🟨 Red node/connection selection and on-screen deletion implemented, including dedicated
+  selected-item controls on the Canvas tab; visual canvas check pending. Keyboard Delete deferred.
 - ✅ Consumer-schema settings for per-instance incoming-edge limits and direct self-loop modes,
   with node-level feedback-boundary selection and a bounded logic consumer example
 - ✅ Rule feedback in UI (transactional rejected connections, loop policy and boundary controls,
