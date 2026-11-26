@@ -162,3 +162,14 @@ def test_edge_expansion_cap_at_boundary_and_above() -> None:
     assert len(expanded.edges) == 100_000
     with pytest.raises(ValueError, match="100000-edge limit"):
         graph.unroll(feedback_edge_ids=feedback)
+
+
+def test_override_is_dormant_in_a_multi_node_cycle() -> None:
+    graph = _graph(
+        ("a", "b"),
+        (("self", "a", "a"), ("forward", "a", "b"), ("feedback", "b", "a")),
+    )
+    overridden = graph.nodes[0].model_copy(update={"feedback_max_iterations": 1})
+    graph = graph.model_copy(update={"nodes": (overridden, graph.nodes[1])})
+    expanded = graph.unroll(feedback_edge_ids=frozenset({"self", "feedback"}))
+    assert {node.node_id for node in expanded.nodes} == {"a", "a@2", "a@3", "b", "b@2", "b@3"}

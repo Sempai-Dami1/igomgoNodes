@@ -118,6 +118,7 @@ def _policy(editor: EditorAdapter, key: str) -> None:
         iterations = st.number_input(
             "Maximum iterations",
             min_value=1,
+            help="Default and upper limit for individual feedback loops.",
             value=loop.max_iterations if loop else 3,
             step=1,
         )
@@ -218,6 +219,33 @@ def _inspector(editor: EditorAdapter, key: str) -> None:
                         (editor.feedback_edge_ids - edge_ids) | frozenset(chosen)
                     ),
                     "Direct loopbacks validated.",
+                )
+    loop = editor.graph.policy.loop
+    active = loop is not None and editor.has_independent_loopback(node.node_id)
+    if active or node.feedback_max_iterations is not None:
+        with st.form(f"{key}_loop_iterations_{node.node_id}_{editor.revision}"):
+            inherit = st.checkbox(
+                "Use graph default",
+                value=node.feedback_max_iterations is None or not active,
+                disabled=not active,
+            )
+            count = st.number_input(
+                "Loop maximum iterations",
+                min_value=1,
+                max_value=loop.max_iterations if loop else None,
+                value=node.feedback_max_iterations or (loop.max_iterations if loop else 1),
+                step=1,
+                disabled=not active,
+            )
+            if not active:
+                st.caption("The saved override can be cleared while this loop is inactive.")
+            if st.form_submit_button("Apply loop iterations"):
+                _action(
+                    editor,
+                    lambda: editor.set_feedback_max_iterations(
+                        node.node_id, None if inherit else int(count)
+                    ),
+                    "Loop iterations updated.",
                 )
     st.caption("Touch: select a node, then use coordinates or the move buttons.")
     with st.form(

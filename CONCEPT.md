@@ -45,7 +45,7 @@ Graph data is also implemented:
   separate from the consumer's processing class. `Position(x, y)` uses finite coordinates;
   each node stores its own position rather than using a separate position map.
 - `Edge(edge_id, src_node, src_port, dst_node, dst_port)` identifies a directed connection.
-- `Graph(nodes, edges, policy)` carries `schema_version=1` and rejects duplicate node IDs,
+- `Graph(nodes, edges, policy)` carries `schema_version=2` and rejects duplicate node IDs,
   duplicate edge IDs, identical connections, and endpoints referencing missing nodes.
   `graph.validate_connections(registry)` checks node types and directional port names
   against explicitly registered specs, exact data-type matches (`any` matches either side),
@@ -99,9 +99,9 @@ Graph data is also implemented:
 - `dumps_graph(graph)` returns formatted JSON text. `loads_graph(text_or_utf8_bytes, registry)`
   returns a structurally validated graph and resolves all node type IDs through the registry,
   without instantiating or executing consumers.
-- Imported documents must explicitly contain integer `schema_version: 1`; missing versions,
-  booleans, floats, and unknown versions are rejected, rather than silently assumed/migrated.
-  Programmatically constructed `Graph()` objects still default to version 1.
+- Imported documents must explicitly contain integer `schema_version` of 1 or 2. Import
+  migrates v1 graphs to v2 with inherited feedback limits. New graphs and exports use v2.
+  Missing versions, booleans, floats, and unknown versions are rejected.
 - Import/export enforce a 25 MiB UTF-8 limit, 10,000 nodes, and 100,000 edges.
   Imports reject duplicate JSON keys, non-finite numbers (including exponent overflow),
   malformed JSON, unknown model fields, invalid structure, and unsupported encodings.
@@ -110,8 +110,8 @@ Graph data is also implemented:
   permission are not run-readiness guarantees at import time. The executor checks these
   before processing. Unknown node types require the consumer to register its trusted module;
   JSON can never request a dynamic import.
-- Version 1 is the first format, so there are no historical migrations. A future breaking
-  change must bump the version and introduce an explicit, tested JSON-data migrator for each
+- Version 2 adds optional per-node feedback iteration limits. A future breaking change
+  must bump the version and introduce an explicit, tested JSON-data migrator for each
   supported older version before accepting it. Unknown newer versions must remain rejected.
 
 ```python
@@ -189,6 +189,7 @@ It does not execute processing or enforce an elapsed-time budget.
   Selections must be inside cyclic components and their removal must break every cycle.
   There is no inference from node declaration order or visual position.
 - Each cyclic component gets `n` copies of every member (default: `max_iterations`).
+  An independent self-loop with a saved override uses the smaller of `n` and that override.
   `n` must be a positive integer and cannot exceed the original loop policy.
   Ordinary internal edges stay within a pass; selected edges connect pass k to pass k+1.
   Feedback is absent on the first pass and never wraps around from the final pass.
@@ -353,7 +354,7 @@ tap-select-then-tap-canvas placement is deferred to a custom component.
   configured folder on disk, using an atomic file replacement.
 - Implemented in `igomgo_nodes.storage`: the byte-oriented `GraphStore` interface,
   `BrowserFileStore` for download/upload bytes, and `LocalJsonStore` for local disk.
-- The versioned editor document wraps unchanged schema-v1 graph JSON with the editor's
+- The versioned editor document wraps the core graph JSON with the editor's
   selected feedback-edge IDs. It also imports core graph JSON documents without editor
   metadata. Both document forms use strict UTF-8/JSON, duplicate-key and non-finite-number
   checks, registry-only node types, and a 25 MiB whole-file cap.

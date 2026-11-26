@@ -511,6 +511,29 @@ class EditorAdapter:
     def set_policy(self, policy: GraphPolicy) -> None:
         self._commit(self.graph.nodes, self.graph.edges, policy)
 
+    def has_independent_loopback(self, node_id: str) -> bool:
+        return (
+            any(
+                edge.src_node == edge.dst_node == node_id and edge.edge_id in self.feedback_edge_ids
+                for edge in self.graph.edges
+            )
+            and (node_id,) in self.graph.strongly_connected_components()
+        )
+
+    def set_feedback_max_iterations(self, node_id: str, count: int | None) -> None:
+        node = self.node(node_id)
+        if count is not None and (
+            not self.graph.policy.allow_feedback or not self.has_independent_loopback(node_id)
+        ):
+            raise ValueError(f"Node {node_id}: activate an independent direct feedback loop first")
+        replacement = NodeInstance.model_validate(
+            {**node.model_dump(), "feedback_max_iterations": count}
+        )
+        self._commit(
+            tuple(replacement if item.node_id == node_id else item for item in self.graph.nodes),
+            self.graph.edges,
+        )
+
     def set_feedback_edges(self, edge_ids: frozenset[str]) -> None:
         self.graph.unroll(feedback_edge_ids=edge_ids)
         self.feedback_edge_ids = edge_ids

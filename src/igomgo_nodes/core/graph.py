@@ -6,7 +6,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, JsonValue, model_validator
 
-from .policy import GraphPolicy
+from .policy import GraphPolicy, IterationCount
 from .ports import PortName
 from .registry import NodeRegistry
 
@@ -25,6 +25,7 @@ class NodeInstance(BaseModel):
     type_id: PortName
     params: dict[str, JsonValue] = Field(default_factory=dict)
     position: Position = Field(default_factory=Position)
+    feedback_max_iterations: IterationCount | None = None
 
 
 class Edge(BaseModel):
@@ -40,7 +41,7 @@ class Edge(BaseModel):
 class Graph(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     nodes: tuple[NodeInstance, ...] = ()
     edges: tuple[Edge, ...] = ()
     policy: GraphPolicy = Field(default_factory=GraphPolicy)
@@ -61,7 +62,20 @@ class Graph(BaseModel):
             if connection in connections:
                 raise ValueError(f"Duplicate connection at edge {edge.edge_id}")
             connections.add(connection)
+        self.validate_feedback_limits()
         return self
+
+    def validate_feedback_limits(self) -> None:
+        loop = self.policy.loop
+        if loop is None:
+            return
+        for node in self.nodes:
+            override = node.feedback_max_iterations
+            if override is not None and override > loop.max_iterations:
+                raise ValueError(
+                    f"Node {node.node_id}: feedback override {override} exceeds "
+                    f"the graph maximum of {loop.max_iterations}"
+                )
 
     def validate_connections(
         self, registry: NodeRegistry, *, require_minimums: bool = True

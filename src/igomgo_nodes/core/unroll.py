@@ -15,6 +15,7 @@ class StepInfo:
     component: int
     iteration: int
     cyclic: bool
+    max_iterations: int
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,7 @@ def plan_graph(
     graph: Graph, iterations: int | None, feedback_edge_ids: frozenset[str]
 ) -> ExpansionPlan:
     graph.validate_feedback()
+    graph.validate_feedback_limits()
     if iterations is not None and (type(iterations) is not int or iterations < 1):
         raise ValueError("iterations must be a positive integer")
     loop = graph.policy.loop
@@ -82,16 +84,31 @@ def plan_graph(
     except ValueError as error:
         raise ValueError("Selected feedback edges do not break every cycle") from error
 
-    expanded_node_count = len(graph.nodes) + len(cyclic_nodes) * (count - 1)
+    passes_by_node = {
+        node.node_id: count if node.node_id in cyclic_nodes else 1 for node in graph.nodes
+    }
+    for node in graph.nodes:
+        override = node.feedback_max_iterations
+        if (
+            override is not None
+            and node.node_id in self_loops
+            and len(components[component_by_node[node.node_id]]) == 1
+        ):
+            passes_by_node[node.node_id] = min(count, override)
+
+    expanded_node_count = sum(passes_by_node.values())
     expanded_edge_count = 0
     for edge in graph.edges:
         same_cycle = (
             edge.src_node in cyclic_nodes
             and component_by_node[edge.src_node] == component_by_node[edge.dst_node]
         )
-        expanded_edge_count += (
-            count - 1 if edge.edge_id in feedback_edge_ids else count if same_cycle else 1
-        )
+        if same_cycle:
+            expanded_edge_count += passes_by_node[edge.src_node] - int(
+                edge.edge_id in feedback_edge_ids
+            )
+        else:
+            expanded_edge_count += 1
     if expanded_node_count > MAX_EXPANDED_NODES:
         raise ValueError(f"Expanded graph exceeds the {MAX_EXPANDED_NODES}-node limit")
     if expanded_edge_count > MAX_EXPANDED_EDGES:
@@ -102,7 +119,7 @@ def plan_graph(
     steps: dict[str, StepInfo] = {}
     nodes: list[NodeInstance] = []
     for node in graph.nodes:
-        passes = count if node.node_id in cyclic_nodes else 1
+        passes = passes_by_node[node.node_id]
         for iteration in range(passes):
             node_id = (
                 node.node_id
@@ -115,8 +132,13 @@ def plan_graph(
                 component_by_node[node.node_id],
                 iteration + 1,
                 node.node_id in cyclic_nodes,
+                passes if node.node_id in cyclic_nodes else count,
             )
-            nodes.append(node.model_copy(deep=True, update={"node_id": node_id}))
+            nodes.append(
+                node.model_copy(
+                    deep=True, update={"node_id": node_id, "feedback_max_iterations": None}
+                )
+            )
 
     used_edge_ids = set(edge_ids)
     edges: list[Edge] = []
@@ -127,7 +149,7 @@ def plan_graph(
         )
         if same_cycle:
             feedback = edge.edge_id in feedback_edge_ids
-            for iteration in range(count - 1 if feedback else count):
+            for iteration in range(passes_by_node[edge.src_node] - int(feedback)):
                 edge_id = (
                     edge.edge_id
                     if iteration == 0
@@ -143,7 +165,7 @@ def plan_graph(
                     )
                 )
         else:
-            source_pass = count - 1 if edge.src_node in cyclic_nodes else 0
+            source_pass = passes_by_node[edge.src_node] - 1
             edges.append(
                 edge.model_copy(
                     update={

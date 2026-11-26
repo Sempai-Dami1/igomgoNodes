@@ -60,7 +60,7 @@ def test_round_trip_preserves_graph_and_does_not_run_processing(as_bytes: bool) 
         ),
     )
     text = dumps_graph(graph)
-    assert json.loads(text)["schema_version"] == 1
+    assert json.loads(text)["schema_version"] == 2
     assert loads_graph(text.encode("utf-8") if as_bytes else text, _registry()) == graph
 
 
@@ -71,7 +71,18 @@ def test_incomplete_editing_state_can_be_saved_and_loaded() -> None:
         restored.validate_connections(_registry())
 
 
-@pytest.mark.parametrize("version", [None, 0, 2, True, 1.0, "1"])
+def test_schema_v1_migrates_without_feedback_overrides() -> None:
+    node = {"node_id": "node", "type_id": "test.serializable"}
+    document = {"schema_version": 1, "nodes": [node]}
+    assert loads_graph(json.dumps(document), _registry()) == Graph(
+        nodes=(NodeInstance(node_id="node", type_id="test.serializable"),)
+    )
+    node["feedback_max_iterations"] = "3"
+    with pytest.raises(ValueError, match="does not support feedback iteration overrides"):
+        loads_graph(json.dumps(document), _registry())
+
+
+@pytest.mark.parametrize("version", [None, 0, 3, True, 1.0, 2.0, "1"])
 def test_version_is_required_and_must_be_supported_integer(version: object) -> None:
     document = {} if version is None else {"schema_version": version}
     with pytest.raises(ValueError, match="schema_version"):

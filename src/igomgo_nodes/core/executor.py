@@ -52,11 +52,10 @@ def _run_worker(
     plan: ExpansionPlan,
     registry: NodeRegistry,
     capture_every: int,
-    max_iterations: int,
     inputs: dict[str, dict[str, object]],
 ) -> None:
     try:
-        _process(connection, plan, registry, capture_every, max_iterations, inputs)
+        _process(connection, plan, registry, capture_every, inputs)
         _send(connection, ("done", None))
     except Exception as error:
         _send(connection, ("error", f"{type(error).__name__}: {error}"))
@@ -69,7 +68,6 @@ def _process(
     plan: ExpansionPlan,
     registry: NodeRegistry,
     capture_every: int,
-    max_iterations: int,
     external_inputs: dict[str, dict[str, object]],
 ) -> None:
     nodes = {node.node_id: node for node in plan.graph.nodes}
@@ -127,7 +125,7 @@ def _process(
             inputs.update(deepcopy(external_inputs.get(step.original_node_id, {})))
         try:
             node = node_type(node_id, definition.params)
-            node.context = RunContext(step.original_node_id, step.iteration, max_iterations)
+            node.context = RunContext(step.original_node_id, step.iteration, step.max_iterations)
             mode = node_type.direct_loopback_mode(node.params)
             ports = direct_feedback.get(step.original_node_id, {})
             if mode == "add" and step.iteration == 1 and ports:
@@ -143,7 +141,7 @@ def _process(
                         inputs[port] = node.combine_loopback(
                             port, deepcopy(original_inputs[step.original_node_id, port]), value
                         )
-                        if step.iteration == max_iterations:
+                        if step.iteration == step.max_iterations:
                             del original_inputs[step.original_node_id, port]
                     else:
                         spec = next(item for item in node_type.spec.inputs if item.name == port)
@@ -229,7 +227,6 @@ class Executor:
                 plan,
                 registry,
                 loop.capture_every if loop else 1,
-                loop.max_iterations if loop else 1,
                 supplied,
             ),
         )

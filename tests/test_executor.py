@@ -24,6 +24,7 @@ from igomgo_nodes.core import (
     executor,
 )
 from igomgo_nodes.core.unroll import plan_graph
+from igomgo_nodes.storage import BrowserFileStore
 
 
 class Constant(BaseNode):
@@ -306,10 +307,10 @@ def test_additive_direct_loopback_originals_have_a_strict_size_limit(
     size = len(pickle.dumps({("stage", "in"): [original]}, protocol=pickle.HIGHEST_PROTOCOL))
     monkeypatch.setattr(executor, "_send", lambda connection, message: None)
     monkeypatch.setattr(executor, "MAX_CAPTURE_BYTES", size)
-    executor._process(MagicMock(), plan, registry, 1, 2, {})
+    executor._process(MagicMock(), plan, registry, 1, {})
     monkeypatch.setattr(executor, "MAX_CAPTURE_BYTES", size - 1)
     with pytest.raises(ExecutionError, match="Direct loopback originals exceed"):
-        executor._process(MagicMock(), plan, registry, 1, 2, {})
+        executor._process(MagicMock(), plan, registry, 1, {})
 
 
 def test_additive_direct_loopback_requires_a_consumer_combiner() -> None:
@@ -513,3 +514,60 @@ def test_runtime_inputs_cannot_override_edges_or_multi_connection_ports() -> Non
     multi = Graph(nodes=(NodeInstance(node_id="add", type_id="test.add"),))
     with pytest.raises(ValueError, match="optional scalar port"):
         Executor().run(multi, _registry(), inputs={"add": {"in": [1]}})
+
+
+def test_independent_loop_overrides_round_trip_and_feed_final_outputs() -> None:
+    short = NodeInstance(node_id="short", type_id="test.add", feedback_max_iterations=3)
+    long = NodeInstance(node_id="long", type_id="test.add", feedback_max_iterations=8)
+    graph = Graph(
+        nodes=(short, long, NodeInstance(node_id="result", type_id="test.ordered")),
+        edges=(
+            _edge("short-loop", "short", "short"),
+            _edge("long-loop", "long", "long"),
+            _edge("short-result", "short", "result"),
+            _edge("long-result", "long", "result"),
+        ),
+        policy=GraphPolicy(
+            allow_feedback=True, loop=LoopPolicy(max_iterations=8, timeout_seconds=10)
+        ),
+    )
+    boundaries = frozenset({"short-loop", "long-loop"})
+    registry = _registry()
+    store = BrowserFileStore()
+    document = store.deserialize(store.serialize(graph, boundaries), registry)
+    assert document.graph == graph
+    assert frozenset(document.feedback_edge_ids) == boundaries
+    result = Executor().run(document.graph, registry, feedback_edge_ids=boundaries)
+    assert not result.timed_out
+    assert {
+        node_id: [
+            snapshot.iteration for snapshot in result.snapshots if node_id in snapshot.component
+        ]
+        for node_id in ("short", "long")
+    } == {"short": [1, 2, 3], "long": list(range(1, 9))}
+    assert result.outputs["result"]["out"] == [3, 8]
+
+    legacy_graph = Graph(
+        nodes=tuple(
+            item.model_copy(update={"feedback_max_iterations": None}) for item in graph.nodes
+        ),
+        edges=graph.edges,
+        policy=graph.policy,
+    )
+    legacy_data = store.serialize(legacy_graph, boundaries).replace(
+        b'"schema_version": 2', b'"schema_version": 1', 1
+    )
+    assert b"feedback_max_iterations" not in legacy_data
+    legacy = store.deserialize(legacy_data, registry)
+    assert legacy.graph.schema_version == 2
+    inherited = Executor().run(legacy.graph, registry, feedback_edge_ids=boundaries)
+    assert inherited.outputs["result"]["out"] == [8, 8]
+
+    with pytest.raises(ValueError, match="Node long: feedback override 8"):
+        Graph(
+            nodes=graph.nodes,
+            edges=graph.edges,
+            policy=GraphPolicy(
+                allow_feedback=True, loop=LoopPolicy(max_iterations=7, timeout_seconds=10)
+            ),
+        )

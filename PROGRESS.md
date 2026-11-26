@@ -44,8 +44,9 @@ Status legend: ⬜ not started · 🟨 in progress · ✅ done · ⏸ deferred
 - ✅ Inspector panel (Pydantic parameter-schema forms, port details, validated edits)
 - ✅ Optional tablet/desktop focus mode with Setup, Canvas, Node, and Graph tabs;
   original layout remains the default
-- 🟨 Red node/connection selection and on-screen deletion implemented, including dedicated
-  selected-item controls on the Canvas tab; visual canvas check pending. Keyboard Delete deferred.
+- ✅ Red node/connection selection and on-screen deletion implemented, including dedicated
+  selected-item controls on the Canvas tab; highlighting confirmed locally and hosted.
+  Keyboard Delete deferred.
 - ✅ Consumer-schema settings for per-instance incoming-edge limits and direct self-loop modes,
   with node-level feedback-boundary selection and a bounded logic consumer example
 - ✅ Rule feedback in UI (transactional rejected connections, loop policy and boundary controls,
@@ -85,3 +86,21 @@ Status legend: ⬜ not started · 🟨 in progress · ✅ done · ⏸ deferred
   editor integration, and storage
 - 🟨 Demo deployed to Streamlit Community Cloud; anonymous access verification pending
 - ✅ Tag v0.1.0 (consumers install via `git+https://github.com/Sempai-Dami1/igomgoNodes.git@v0.1.0`)
+
+## 2026-11-26 - Per-node iteration limits for direct feedback loops
+
+- Added an optional framework-owned node override. The graph maximum is both
+  the inherited count and the ceiling. The inspector offers an override for
+  an active, independent self-loop and identifies the node if a lower graph
+  maximum would invalidate its override.
+- Unrolling uses each loop's effective count and passes its last output
+  downstream. Multi-node cycles use the graph policy. Capture frequency and
+  the executor's time and resource limits remain shared.
+- Verified independent 3- and 8-pass loops, downstream outputs, browser-file
+  round trips, and inheritance from files without overrides. ImageLab's local
+  smoke test configured a three-pass blur and verified three captures.
+- Graph exports use schema v2. Core and editor imports migrate existing schema-v1
+  graphs to v2 with inherited feedback limits. Use the pinned revision in the
+  [ImageLab handoff](./docs/imagelab-handoff.md) for consumer adoption.
+- The local ImageLab running-app check set an override, ran Feedback blur,
+  and displayed iteration 3.

@@ -29,7 +29,7 @@ def test_graph_round_trip_preserves_positions_parameters_and_feedback() -> None:
     )
     restored = Graph.model_validate_json(graph.model_dump_json())
     assert restored == graph
-    assert restored.schema_version == 1
+    assert restored.schema_version == 2
 
 
 @pytest.mark.parametrize(
@@ -70,7 +70,7 @@ def test_positions_must_be_finite(coordinate: float) -> None:
         Position(x=coordinate)
 
 
-@pytest.mark.parametrize("version", [0, 2, "1"])
+@pytest.mark.parametrize("version", [0, 1, 3, "2"])
 def test_unknown_schema_versions_are_rejected(version: object) -> None:
     with pytest.raises(ValidationError):
         Graph.model_validate({"schema_version": version})

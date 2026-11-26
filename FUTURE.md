@@ -37,6 +37,32 @@ Ideas parked here are **out of scope** until promoted into [PROGRESS.md](./PROGR
 - Per-edge delay semantics for feedback edges
 - Worker offload for heavy consumers (Celery/RQ, Supabase Edge Functions, GPU)
 
+### Per-node iteration limits for direct feedback loops
+
+Implemented. See [PROGRESS.md](./PROGRESS.md) for verification.
+
+Requested by ImageLab on 2026-11-26. The owner verified that Setup controls
+the graph-wide feedback count and the node inspector controls blur strength.
+The request puts the loop count alongside the active loop in the inspector.
+
+- Offer **Use graph default** or a custom **Maximum iterations** for an active
+  direct self-loop. Independent self-loops can use different counts and each
+  sends its last completed result downstream.
+- Proposed storage is an optional framework-owned field on the node instance.
+  Older saved graphs without the field use the graph-wide count. ImageLab's
+  blur strength remains a consumer parameter.
+- Keep multi-node cycles, capture frequency, timeout, and memory limits under
+  the graph-wide policy.
+- The graph maximum is both the inherited count and the ceiling. A custom
+  count must be an integer from 1 through that maximum. Reject a graph
+  maximum below an existing override and identify the affected node.
+- Acceptance: run two independent loops with 3 and 8 passes, verify their
+  downstream outputs, and save and reopen the graph to verify both overrides.
+  Open a pre-override graph and verify the graph default still applies.
+  Smoke-test the inspector control in ImageLab with Feedback blur.
+
+AudioLab can add a use case here when one is identified.
+
 ## Domains
 - Electronic circuit simulation (e.g. PySpice/ngspice integration)
 - Video frame chains; 3D/shader nodes

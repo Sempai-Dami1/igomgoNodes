@@ -10,6 +10,7 @@ from typing import Literal, Protocol, cast, runtime_checkable
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from igomgo_nodes.core import Graph, NodeRegistry, dumps_graph, loads_graph
+from igomgo_nodes.core.serialization import SCHEMA_VERSION, validate_graph_document
 
 MAX_EDITOR_FILE_BYTES = 25 * 1024 * 1024
 EDITOR_FILE_FORMAT = "igomgo.editor-graph"
@@ -43,19 +44,20 @@ class GraphDocument(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def require_integer_graph_schema(cls, value: object) -> object:
+    def migrate_graph_schema(cls, value: object) -> object:
         if isinstance(value, dict):
             graph = value.get("graph")
             if isinstance(graph, dict):
-                version = graph.get("schema_version")
-                if type(version) is not int or version != 1:
-                    raise ValueError("Graph schema_version must be integer 1")
+                return {**value, "graph": validate_graph_document(graph)}
         return value
 
     @model_validator(mode="after")
     def validate_feedback_edges(self) -> "GraphDocument":
-        if type(self.graph.schema_version) is not int or self.graph.schema_version != 1:
-            raise ValueError("Graph schema_version must be integer 1")
+        if (
+            type(self.graph.schema_version) is not int
+            or self.graph.schema_version != SCHEMA_VERSION
+        ):
+            raise ValueError(f"Graph schema_version must be integer {SCHEMA_VERSION}")
         if len(set(self.feedback_edge_ids)) != len(self.feedback_edge_ids):
             raise ValueError("Feedback edge IDs must be unique")
         known_ids = {edge.edge_id for edge in self.graph.edges}

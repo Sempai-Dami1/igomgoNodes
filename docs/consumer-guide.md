@@ -151,6 +151,19 @@ the first pass and the last completed pass supplies downstream outputs. The exec
 enforces iteration, timeout, expansion, snapshot, and transfer limits. Audio sample-level
 feedback mixing, if used, belongs in the consumer node and is separate from graph passes.
 
+### Iteration overrides for independent self-loops
+
+Select an active direct self-loop in the inspector and use **Use graph default**
+or enter a custom **Loop maximum iterations** from 1 through the graph maximum.
+The optional framework-owned `NodeInstance.feedback_max_iterations` field stores
+the setting separately from consumer parameters. Older graphs inherit the graph
+maximum. Multi-node cycles continue to use the graph policy, and capture frequency,
+timeout, and result limits remain shared across the run.
+
+Each independent loop delivers its last pass downstream. Lowering the graph
+maximum below a saved override is rejected and identifies the node to adjust.
+Exported graphs with an override require a framework version that supports it.
+
 ### Direct node loopbacks
 
 Consumers can expose a `replace`/`add` parameter and override

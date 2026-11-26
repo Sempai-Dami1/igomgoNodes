@@ -30,9 +30,13 @@ if __name__ == "__main__":
             st.toggle(
                 "Remember workspace",
                 key="remember_workspace",
-                help="Save your graph and preferences in this browser. Uploaded media is not saved.",
+                help=(
+                    "Save your graph and preferences in this browser. Uploaded media is not saved."
+                ),
             )
-    st.caption(f"v{igomgo_nodes.__version__} · drag nodes, tap to select, or use inspector movement")
+    st.caption(
+        f"v{igomgo_nodes.__version__} · drag nodes, tap to select, or use inspector movement"
+    )
 
     with st.container(horizontal=True):
         with st.popover("About", icon=":material/info:"):
@@ -45,7 +49,9 @@ if __name__ == "__main__":
                 "Session data is temporary, and media and results may be cached in server memory. "
                 "Avoid uploading sensitive data."
             )
-            st.markdown(f"**Version:** {igomgo_nodes.__version__} · [iGOMGO.com](https://igomgo.com)")
+            st.markdown(
+                f"**Version:** {igomgo_nodes.__version__} · [iGOMGO.com](https://igomgo.com)"
+            )
         with st.popover("Help", icon=":material/help:"):
             st.markdown(
                 "Choose an example, add nodes from the palette, and drag nodes or use the "

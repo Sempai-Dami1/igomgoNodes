@@ -15,6 +15,7 @@ environment. Never put credentials in the URL or commit them to a dependency fil
 - [CONCEPT.md](./CONCEPT.md) — vision, architecture, core model, UI and storage design
 - [PROGRESS.md](./PROGRESS.md) — roadmap and status
 - [Consumer guide](./docs/consumer-guide.md) — install, implement a node, build and run a graph
+- [ImageLab handoff](./docs/imagelab-handoff.md) — image-chain consumer and user workflows
 - [AGENTS.md](./AGENTS.md) — rules for contributors and AI agents
 - [SECURITY.md](./SECURITY.md) — security policy and requirements
 - [FUTURE.md](./FUTURE.md) — deferred features and ideas
@@ -108,7 +109,8 @@ text = dumps_graph(graph)  # download/save this as my_graph.igomgo.json
 restored = loads_graph(text, registry)  # also accepts UTF-8 bytes from an upload
 ```
 
-Documents require `schema_version: 1` and registered node types. Import/export enforce
+Exports use `schema_version: 2`. Imports migrate schema v1 and require registered node types.
+Import/export enforce
 25 MiB, 10,000 nodes, and 100,000 edges. Duplicate JSON keys, non-finite numbers, unknown
 versions, and invalid graph structure raise errors. No processing runs during import.
 Incomplete graphs remain saveable; call connection/feedback validation before executing.
